@@ -97,6 +97,9 @@ class EvChargeulatorCard extends LitElement {
             console.warn('No valid slots to render for charging plan');
         }
 
+        const now = Date.now();
+        priceSlots = priceSlots.filter((slot) => slot.end > now);
+
     let inVal = Number(energy_in_value);
     let outVal = energy_out_value != null ? Number(energy_out_value) : inVal;
     let inUnit = energy_in_unit || 'kW';
