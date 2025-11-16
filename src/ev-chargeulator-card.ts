@@ -142,8 +142,7 @@ class EvChargeulatorCard extends LitElement {
                         cs && typeof cs.start !== 'undefined'
                             ? html`
                                   <li>
-                                      ${formatTime(cs.start)}–${formatTime(cs.end)}, Energy:
-                                      ${cs.energy.toFixed(2)} kWh, Cost: ${cs.cost.toFixed(2)}
+                                      ${formatTime(cs.start)}–${formatTime(cs.end)}, ${cs.energy.toFixed(2)} kWh, ${cs.cost.toFixed(2)}
                                   </li>
                               `
                             : html`<li><em>Missing slot data</em></li>`
@@ -160,13 +159,6 @@ class EvChargeulatorCard extends LitElement {
         return html`
             <ha-card>
                 <div class="card-header">${title || 'EV Chargeulator'}</div>
-                <div>
-                    <strong>SOC Now:</strong> ${currentSOC}%<br />
-                    <strong>Target SOC:</strong> ${targetSOCNum}%<br />
-                    <strong>Battery Size:</strong> ${battery_size_kwh} kWh<br />
-                <strong>Energy In:</strong> ${energy_in_value} ${energy_in_unit}<br />
-                <strong>Energy Out:</strong> ${energy_out_value ?? energy_in_value} ${energy_out_unit ?? energy_in_unit}<br />
-                </div>
                 <div style="margin:1em 0;">
                     <strong>Recommended Charge Plan:</strong><br />
                     ${chargeSlotsList}
