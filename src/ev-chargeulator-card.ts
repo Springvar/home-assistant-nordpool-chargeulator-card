@@ -19,20 +19,21 @@ export interface EvChargeulatorCardConfig {
     energy_out_value?: number;
     energy_out_unit?: string;
     target_soc: number;
-    max_charge_slots?: number; 
+    max_charge_slots?: number;
     show_summary?: boolean;
     plan_template?: string;
+    over_section_slots?: number;
 }
 
 class EvChargeulatorCard extends LitElement {
     @property({ attribute: false }) hass: any;
-    @property({ type: Object }) private _config!: EvChargeulatorCardConfig;
+    @property({ type: Object }) private config!: EvChargeulatorCardConfig;
 
     private _timerId?: number;
     private _firstChargeSlotStart?: number;
 
     setConfig(config: EvChargeulatorCardConfig) {
-        this._config = config;
+        this.config = config;
     }
 
     static async getConfigElement(config: EvChargeulatorCardConfig) {
@@ -120,7 +121,7 @@ class EvChargeulatorCard extends LitElement {
     }
 
     render() {
-        if (!this.hass || !this._config) {
+        if (!this.hass || !this.config) {
             return html`<div>Not configured</div>`;
         }
         const {
@@ -137,8 +138,7 @@ class EvChargeulatorCard extends LitElement {
             show_plan_header = true,
             show_summary = true,
             plan_header_text = 'Charge plan:'
-            // plan_template
-        } = this._config;
+        } = this.config;
 
         const priceSensor = this.hass.states?.[price_entity];
         const socSensor = this.hass.states?.[soc_entity];
@@ -215,11 +215,12 @@ class EvChargeulatorCard extends LitElement {
             energy_out_per_slot: outKWh,
             priceSlots,
             minimumPriceSlotsPerChargeSlot: 1,
-            maximumChargeSlotsInPlan: this._config.max_charge_slots ?? 3
+            maximumChargeSlotsInPlan: this.config.max_charge_slots ?? 3,
+            overSectionSlots: this.config.over_section_slots ?? 15
         });
 
         const planTemplate =
-            this._config.plan_template ??
+            this.config.plan_template ??
             `<ul>
 %repeat.start%
 <li>%from%-%to% %energy% kWh %cost%</li>

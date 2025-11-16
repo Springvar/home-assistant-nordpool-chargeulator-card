@@ -117,27 +117,17 @@ export class EvChargeulatorCardEditor extends LitElement {
             </div>
             <div class="editor-form-row">
                 <label class="editor-label">Max charge slots:</label>
-                <input
-                    type="number"
-                    class="editor-field"
-                    min="1"
-                    max="12"
-                    step="1"
-                    .value=${this._config.max_charge_slots ?? 3}
-                    @input=${this._maxChargeSlotsChanged}
-                />
+                <input type="number" class="editor-field" min="1" max="12" step="1" .value=${this._config.max_charge_slots ?? 3} @input=${this._maxChargeSlotsChanged} />
                 <div class="editor-note">
-                    <em>
-                      Sets the maximum number of chunks to split the charge plan into.
-                      Different cars/chargers may only support a limited number of scheduling periods.
-                    </em>
+                    <em> Sets the maximum number of chunks to split the charge plan into. Different cars/chargers may only support a limited number of scheduling periods. </em>
                 </div>
             </div>
             <div class="editor-form-row">
                 <label class="editor-label">Charge plan template:</label>
-                <textarea class="editor-field" style="width:100%;min-height:80px;" @input=${this._planTemplateChanged}>${this._config.plan_template
-                        ?? `<ul>%repeat.start%\n<li>%from%-%to% %energy%kWh %cost%</li>\n%repeat.end%\n</ul>`}
-                </textarea>
+                <textarea class="editor-field" style="width:100%;min-height:80px;" @input=${this._planTemplateChanged}>
+${this._config.plan_template ?? `<ul>%repeat.start%\n<li>%from%-%to% %energy%kWh %cost%</li>\n%repeat.end%\n</ul>`}
+                </textarea
+                >
                 <div class="editor-note">
                     <strong>Available variables:</strong><br />
                     <code>%from%</code> — From (HH:MM or dd.mm HH:MM if next day)<br />
