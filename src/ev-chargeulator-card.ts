@@ -7,6 +7,10 @@ import { ChargeSlot, getOptimalChargePlan, PriceSlot } from './ev-charging-calc'
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 
 export interface EvChargeulatorCardConfig {
+    show_header?: boolean;
+    title?: string;
+    show_plan_header?: boolean;
+    plan_header_text?: string;
     price_entity: string;
     soc_entity: string;
     battery_size_kwh: number;
@@ -15,11 +19,8 @@ export interface EvChargeulatorCardConfig {
     energy_out_value?: number;
     energy_out_unit?: string;
     target_soc: number;
-    title?: string;
-    show_header?: boolean;
-    show_plan_header?: boolean;
+    max_charge_slots?: number; 
     show_summary?: boolean;
-    plan_header_text?: string;
     plan_template?: string;
 }
 
@@ -63,7 +64,8 @@ class EvChargeulatorCard extends LitElement {
             show_header: true,
             show_plan_header: true,
             show_summary: true,
-            plan_header_text: 'Charge plan:'
+            plan_header_text: 'Charge plan:',
+            max_charge_slots: 3
         };
     }
 
@@ -213,7 +215,7 @@ class EvChargeulatorCard extends LitElement {
             energy_out_per_slot: outKWh,
             priceSlots,
             minimumPriceSlotsPerChargeSlot: 1,
-            maximumChargeSlotsInPlan: 3
+            maximumChargeSlotsInPlan: this._config.max_charge_slots ?? 3
         });
 
         const planTemplate =

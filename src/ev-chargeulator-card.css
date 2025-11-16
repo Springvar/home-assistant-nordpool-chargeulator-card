@@ -41,7 +41,8 @@ div {
 }
 .editor-form-row {
     display: flex;
-    align-items: center;
+    align-items: flex-start; /* aligns to the top so note can be below */
+    flex-wrap: wrap; /* allow contents to wrap to new line */
     margin-bottom: 1em;
     padding: 0 20px;
 }
@@ -71,10 +72,40 @@ div {
     width: auto !important;
     margin-right: 8px;
 }
+/* Always put help text below editor fields, even on desktop */
+.editor-field + .editor-note,
+.minor-label-group + .editor-note,
+.editor-field ~ .editor-note {
+    display: block;
+    width: 100%;
+    margin-top: 2px;
+    margin-left: 0;
+    order: 99;
+}
 .editor-note {
     font-size: 0.95em;
     color: #888;
-    margin-left: 6px;
-    flex: 2 2 0;
+    margin-left: 0;
+    margin-top: 2px;
+    width: 100%;
+    flex-basis: 100%;
 }
-
+@media (max-width: 800px) {
+    .editor-form-row {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 0 10px;
+    }
+    .editor-label {
+        margin-bottom: 0.5em;
+        min-width: unset;
+        flex: unset;
+    }
+    .editor-field,
+    .minor-label-group,
+    .editor-note {
+        max-width: 100%;
+        margin-right: 0;
+        margin-left: 0;
+    }
+}

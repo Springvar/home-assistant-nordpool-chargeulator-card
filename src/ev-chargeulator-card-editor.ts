@@ -14,7 +14,8 @@ export class EvChargeulatorCardEditor extends LitElement {
         energy_out_value: undefined,
         energy_out_unit: undefined,
         target_soc: 80,
-        title: 'EV Chargeulator',
+        max_charge_slots: 3,
+        title: 'Chargeulator',
         show_header: true,
         show_plan_header: true,
         show_summary: true,
@@ -58,15 +59,15 @@ export class EvChargeulatorCardEditor extends LitElement {
             });
         return html`
             <div class="editor-form-row">
-                <label class="editor-label">Card Title:</label>
+                <label class="editor-label">Card title:</label>
                 <div class="minor-label-group">
                     <input type="checkbox" class="editor-checkbox" .checked=${this._config.show_header ?? true} @change=${this._showHeaderChanged} />
                     <label class="inline-minor-label">(show)</label>
                 </div>
-                <input type="text" class="editor-field" .value=${this._config.title ?? 'EV Chargeulator'} @input=${this._titleChanged} />
+                <input type="text" class="editor-field" .value=${this._config.title ?? 'Chargeulator'} @input=${this._titleChanged} />
             </div>
             <div class="editor-form-row">
-                <label class="editor-label">Plan Header:</label>
+                <label class="editor-label">Plan header:</label>
                 <div class="minor-label-group">
                     <input type="checkbox" class="editor-checkbox" .checked=${this._config.show_plan_header ?? true} @change=${this._showPlanHeaderChanged} />
                     <label class="inline-minor-label">(show)</label>
@@ -74,18 +75,25 @@ export class EvChargeulatorCardEditor extends LitElement {
                 <input type="text" class="editor-field" .value=${this._config.plan_header_text ?? 'Charge plan:'} @input=${this._planHeaderTextChanged} />
             </div>
             <div class="editor-form-row">
-                <label class="editor-label">Nordpool Price Sensor:</label>
+                <label class="editor-label">Nordpool price sensor:</label>
                 <select class="editor-field" @change=${this._priceEntityChanged} .value=${this._config.price_entity}>
                     <option value="">Select entity...</option>
                     ${priceEntities.map((eid) => html`<option value=${eid}>${eid}</option>`)}
                 </select>
             </div>
             <div class="editor-form-row">
-                <label class="editor-label">Battery Size (kWh):</label>
+                <label class="editor-label">Battery level sensor:</label>
+                <select class="editor-field" @change=${this._socEntityChanged} .value=${this._config.soc_entity}>
+                    <option value="">Select entity...</option>
+                    ${socEntities.map((eid) => html`<option value=${eid}>${eid}</option>`)}
+                </select>
+            </div>
+            <div class="editor-form-row">
+                <label class="editor-label">Battery size (kWh):</label>
                 <input type="number" class="editor-field" min="1" step="1" .value=${this._config.battery_size_kwh} @input=${this._batterySizeChanged} />
             </div>
             <div class="editor-form-row">
-                <label class="editor-label">Energy In (what you pay for):</label>
+                <label class="editor-label">Energy in (what you pay for):</label>
                 <input type="number" class="editor-field" min="0.1" step="0.1" .value=${this._config.energy_in_value} @input=${this._energyInValueChanged} />
                 <select class="editor-field" @change=${this._energyInUnitChanged} .value=${this._config.energy_in_unit}>
                     <option value="kW">kW</option>
@@ -94,7 +102,7 @@ export class EvChargeulatorCardEditor extends LitElement {
                 </select>
             </div>
             <div class="editor-form-row">
-                <label class="editor-label">Energy Out (into battery, optional):</label>
+                <label class="editor-label">Energy out (into battery, optional):</label>
                 <input type="number" class="editor-field" min="0.1" step="0.1" .value=${this._config.energy_out_value ?? ''} @input=${this._energyOutValueChanged} />
                 <select class="editor-field" @change=${this._energyOutUnitChanged} .value=${this._config.energy_out_unit ?? this._config.energy_in_unit}>
                     <option value="kW">kW</option>
@@ -104,18 +112,29 @@ export class EvChargeulatorCardEditor extends LitElement {
                 <span class="editor-note">(defaults to Energy In)</span>
             </div>
             <div class="editor-form-row">
-                <label class="editor-label">Charging SOC Sensor:</label>
-                <select class="editor-field" @change=${this._socEntityChanged} .value=${this._config.soc_entity}>
-                    <option value="">Select entity...</option>
-                    ${socEntities.map((eid) => html`<option value=${eid}>${eid}</option>`)}
-                </select>
-            </div>
-            <div class="editor-form-row">
-                <label class="editor-label">Target SOC (%):</label>
+                <label class="editor-label">Target charge level (%):</label>
                 <input type="number" class="editor-field" min="1" max="100" step="1" .value=${this._config.target_soc} @input=${this._targetSocChanged} />
             </div>
             <div class="editor-form-row">
-                <label class="editor-label">Charge Plan Template:</label>
+                <label class="editor-label">Max charge slots:</label>
+                <input
+                    type="number"
+                    class="editor-field"
+                    min="1"
+                    max="12"
+                    step="1"
+                    .value=${this._config.max_charge_slots ?? 3}
+                    @input=${this._maxChargeSlotsChanged}
+                />
+                <div class="editor-note">
+                    <em>
+                      Sets the maximum number of chunks to split the charge plan into.
+                      Different cars/chargers may only support a limited number of scheduling periods.
+                    </em>
+                </div>
+            </div>
+            <div class="editor-form-row">
+                <label class="editor-label">Charge plan template:</label>
                 <textarea class="editor-field" style="width:100%;min-height:80px;" @input=${this._planTemplateChanged}>${this._config.plan_template
                         ?? `<ul>%repeat.start%\n<li>%from%-%to% %energy%kWh %cost%</li>\n%repeat.end%\n</ul>`}
                 </textarea>
@@ -194,6 +213,11 @@ export class EvChargeulatorCardEditor extends LitElement {
     }
     _planTemplateChanged(e: Event) {
         this._config = { ...this._config, plan_template: (e.target as HTMLTextAreaElement).value };
+        this._emitConfigChanged();
+    }
+    _maxChargeSlotsChanged(e: Event) {
+        const val = Number((e.target as HTMLInputElement).value);
+        this._config = { ...this._config, max_charge_slots: val > 0 ? val : 3 };
         this._emitConfigChanged();
     }
     _showSummaryChanged(e: Event) {

@@ -72,18 +72,52 @@ export function getOptimalChargePlan({
         };
     }
 
+    const overSectionFactor = 3;
+    const overSectionSlots = maximumChargeSlotsInPlan * overSectionFactor;
+
     let bestPlans = findBestPlans({
         slotsToCharge,
-        maximumChargeSlotsInPlan,
+        maximumChargeSlotsInPlan: overSectionSlots,
         minimumPriceSlotsPerChargeSlot,
         priceSlots,
         energyPerSlot: energy_in_per_slot
     });
 
-    bestPlans.sort((a, b) => a.cost - b.cost);
-    let bestSlots: PriceSlot[][] = bestPlans.length ? bestPlans[0].slots : [];
+    function spliceContiguousBlocks(blocks: PriceSlot[][]) {
+        const result: PriceSlot[][] = [];
+        for (let i = 0; i < blocks.length; ++i) {
+            let curr = blocks[i];
+            while (
+                i + 1 < blocks.length &&
+                curr[curr.length - 1].end === blocks[i + 1][0].start
+            ) {
+                curr = curr.concat(blocks[i + 1]);
+                ++i;
+            }
+            result.push(curr);
+        }
+        return result;
+    }
+
+    let bestSpliced: { cost: number, slots: PriceSlot[][] } | undefined;
+    for (const plan of bestPlans) {
+        const spliced = spliceContiguousBlocks(plan.slots);
+        if (spliced.length <= maximumChargeSlotsInPlan) {
+            if (!bestSpliced || plan.cost < bestSpliced.cost) {
+                bestSpliced = { cost: plan.cost, slots: spliced };
+            }
+        }
+    }
+    let bestSlots: PriceSlot[][] = [];
+    if (bestSpliced) {
+        bestSlots = bestSpliced.slots;
+            } else {
+        bestPlans.sort((a, b) => a.cost - b.cost);
+        bestSlots = bestPlans.length ? bestPlans[0].slots : [];
+        }
+
     let chargeSlots: ChargeSlot[] = [];
-    let totalCost = 0;
+            let totalCost = 0;
     let totalEnergy = 0;
     let socTracker = currentSOC;
     for (let i = 0; i < bestSlots.length; i++) {
@@ -92,7 +126,7 @@ export function getOptimalChargePlan({
         let windowCost = 0;
         for (let j = 0; j < window.length; j++) {
             windowCost += window[j].price * energy_in_per_slot;
-}
+        }
         totalEnergy += windowEnergy;
         totalCost += windowCost;
         let chargeDelta = (windowEnergy / batterySizeKWh) * 100;
@@ -108,7 +142,7 @@ export function getOptimalChargePlan({
             charge,
             chargeDelta
         });
-    }
+        }
 
     const energySurplus = totalEnergy - energyNeededKWh;
     const surplusMinutes = Math.floor((energySurplus / energy_out_per_slot) * slotDurationHours * 60);
@@ -122,12 +156,12 @@ export function getOptimalChargePlan({
                 maxPrice = slot.priceSlots[0].price;
                 maxSlotIdx = i;
                 isStartSlot = true;
-            }
+    }
             if (slot.priceSlots[slot.priceSlots.length - 1].price > maxPrice) {
                 maxPrice = slot.priceSlots[slot.priceSlots.length - 1].price;
                 maxSlotIdx = i;
                 isStartSlot = false;
-            }
+}
         });
 
         if (maxSlotIdx !== -1) {
@@ -146,14 +180,14 @@ export function getOptimalChargePlan({
                 chargeSlots[i].chargeDelta = (chargeSlots[i].energy / batterySizeKWh) * 100;
                 tracker += chargeSlots[i].chargeDelta;
                 chargeSlots[i].charge = Math.round(tracker);
-        }
+            }
 
             const surplusMs = surplusMinutes * (60 * 1000);
             if (isStartSlot) {
                 chargeSlot.start = chargeSlot.start + surplusMs;
             } else {
                 chargeSlot.end = chargeSlot.end - surplusMs;
-        }
+            }
 
             chargeSlots[maxSlotIdx] = chargeSlot;
 
@@ -164,7 +198,6 @@ export function getOptimalChargePlan({
 
     return { totalCost, totalEnergy, chargeSlots };
 }
-
 export function findBestPlans({
     slotsToCharge,
     maximumChargeSlotsInPlan,
@@ -201,7 +234,7 @@ export function findBestPlans({
             const startIdx = priceSlots.indexOf(window[0]);
             for (let k = 0; k < window.length; k++) usedIndexes.add(startIdx + k);
             chargeWindows.push(window);
-        }
+            }
         if (valid && chargeWindows.flat().length === slotsToCharge) {
             let totalCost = 0;
             chargeWindows.forEach((window) => {
@@ -210,7 +243,7 @@ export function findBestPlans({
             chargeWindows = chargeWindows.sort((a, b) => a[0].start - b[0].start);
             bestPlans.push({ cost: totalCost, slots: chargeWindows });
         }
-    }
+        }
     return bestPlans;
 }
 
