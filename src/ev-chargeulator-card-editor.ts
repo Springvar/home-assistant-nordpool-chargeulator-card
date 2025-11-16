@@ -1,6 +1,7 @@
-import { LitElement, html, css } from 'lit';
+import { LitElement, html, css, unsafeCSS } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { EvChargeulatorCardConfig } from './ev-chargeulator-card';
+import styleString from './ev-chargeulator-card.css?raw';
 
 export class EvChargeulatorCardEditor extends LitElement {
     @property({ attribute: false }) public hass: any;
@@ -12,8 +13,12 @@ export class EvChargeulatorCardEditor extends LitElement {
         energy_in_unit: 'kW',
         energy_out_value: undefined,
         energy_out_unit: undefined,
-        target_soc: 90,
-        title: 'EV Chargeulator'
+        target_soc: 80,
+        title: 'EV Chargeulator',
+        show_header: true,
+        show_plan_header: true,
+        show_summary: true,
+        plan_header_text: 'Charge plan:'
     };
 
     setConfig(config: EvChargeulatorCardConfig) {
@@ -23,8 +28,8 @@ export class EvChargeulatorCardEditor extends LitElement {
 
     render() {
         if (!this.hass) return html``;
-        const priceEntities = Object.keys(this.hass.states)
-            .filter(([_eid, state]) => (state as any)?.attributes?.device_class === 'monetary' && !isNaN(Number((state as any).state)))
+        const priceEntities = Object.entries(this.hass.states)
+            .filter(([_eid, state]) => (state as any)?.attributes?.device_class === 'monetary')
             .map(([eid]) => eid)
             .sort((a, b) => {
                 const aIsNordpool = a.toLowerCase().includes('nordpool');
@@ -41,8 +46,9 @@ export class EvChargeulatorCardEditor extends LitElement {
                     const lower = entityId.toLowerCase();
                     if (lower.includes('vehicle') || lower.includes('car')) return 1;
                     if (lower.startsWith('ev_') || lower.endsWith('_ev') || lower.startsWith('ev-') || lower.endsWith('-ev')) return 2;
-                    if (lower.includes('charge')) return 3;
-                    return 4;
+                    if (lower.includes('range')) return 3;
+                    if (lower.includes('battery') || lower.includes('charge') || lower.includes('percentage')) return 4;
+                    return 5;
                 }
                 const scoreA = socScore(a);
                 const scoreB = socScore(b);
@@ -50,50 +56,67 @@ export class EvChargeulatorCardEditor extends LitElement {
                 return a.localeCompare(b);
             });
         return html`
-            <div>
-                <label>Card Title:</label>
-                <input type="text" .value=${this._config.title ?? 'EV Chargeulator'} @input=${this._titleChanged} />
+            <div class="editor-form-row">
+                <label class="editor-label">Card Title:</label>
+                    <div class="minor-label-group">
+                        <input type="checkbox" class="editor-checkbox" .checked=${this._config.show_header ?? true} @change=${this._showHeaderChanged} />
+                        <label class="inline-minor-label">(show)</label>
+                    </div>
+                    <input type="text" class="editor-field" .value=${this._config.title ?? 'EV Chargeulator'} @input=${this._titleChanged} />
+                </div>
+                <div class="editor-form-row">
+                    <label class="editor-label">Plan Header:</label>
+                        <div class="minor-label-group">
+                            <input type="checkbox" class="editor-checkbox" .checked=${this._config.show_plan_header ?? true} @change=${this._showPlanHeaderChanged} />
+                            <label class="inline-minor-label">(show)</label>
+                        </div>
+                    <input type="text" class="editor-field" .value=${this._config.plan_header_text ?? 'Charge plan:'} @input=${this._planHeaderTextChanged} />
+                </div>
             </div>
-            <div>
-                <label>Nordpool Price Sensor:</label>
-                <select @change=${this._priceEntityChanged} .value=${this._config.price_entity}>
+            <div class="editor-form-row">
+                <label class="editor-label">Show Summary:</label>
+                <input type="checkbox" class="editor-checkbox" .checked=${this._config.show_summary ?? true} @change=${this._showSummaryChanged} />
+            </div>
+            <div class="editor-form-row">
+                <label class="editor-label">Nordpool Price Sensor:</label>
+                <select class="editor-field" @change=${this._priceEntityChanged} .value=${this._config.price_entity}>
                     <option value="">Select entity...</option>
                     ${priceEntities.map((eid) => html`<option value=${eid}>${eid}</option>`)}
                 </select>
             </div>
-            <div>
-                <label>Battery Size (kWh):</label>
-                <input type="number" min="1" step="1" .value=${this._config.battery_size_kwh} @input=${this._batterySizeChanged} />
+            <div class="editor-form-row">
+                <label class="editor-label">Battery Size (kWh):</label>
+                <input type="number" class="editor-field" min="1" step="1" .value=${this._config.battery_size_kwh} @input=${this._batterySizeChanged} />
             </div>
-            <div>
-                <label>Energy In (what you pay for):</label>
-                <input type="number" min="0.1" step="0.1" .value=${this._config.energy_in_value} @input=${this._energyInValueChanged} />
-                <select @change=${this._energyInUnitChanged} .value=${this._config.energy_in_unit}>
+            <div class="editor-form-row">
+                <label class="editor-label">Energy In (what you pay for):</label>
+                <input type="number" class="editor-field" min="0.1" step="0.1" .value=${this._config.energy_in_value} @input=${this._energyInValueChanged} />
+                <select class="editor-field" @change=${this._energyInUnitChanged} .value=${this._config.energy_in_unit}>
                     <option value="kW">kW</option>
                     <option value="kWh">kWh</option>
                     <option value="Wh">Wh</option>
                 </select>
             </div>
-            <div>
-                <label>Energy Out (into battery, optional):</label>
-                <input type="number" min="0.1" step="0.1" .value=${this._config.energy_out_value ?? ''} @input=${this._energyOutValueChanged} />
-                <select @change=${this._energyOutUnitChanged} .value=${this._config.energy_out_unit ?? this._config.energy_in_unit}>
+            <div class="editor-form-row">
+                <label class="editor-label">Energy Out (into battery, optional):</label>
+                <input type="number" class="editor-field" min="0.1" step="0.1" .value=${this._config.energy_out_value ?? ''} @input=${this._energyOutValueChanged} />
+                <select class="editor-field" @change=${this._energyOutUnitChanged} .value=${this._config.energy_out_unit ?? this._config.energy_in_unit}>
                     <option value="kW">kW</option>
                     <option value="kWh">kWh</option>
                     <option value="Wh">Wh</option>
                 </select>
-                <span style="color: #888">(defaults to Energy In)</span>
+                <span class="editor-note">(defaults to Energy In)</span>
             </div>
-            <div>
-                <label>Charging SOC Sensor:</label>
-                <select @change=${this._socEntityChanged} .value=${this._config.soc_entity}>
+            <div class="editor-form-row">
+                <label class="editor-label">Charging SOC Sensor:</label>
+                <select class="editor-field" @change=${this._socEntityChanged} .value=${this._config.soc_entity}>
                     <option value="">Select entity...</option>
                     ${socEntities.map((eid) => html`<option value=${eid}>${eid}</option>`)}
                 </select>
             </div>
-            <div>
-                <label>Target SOC (%):</label>
-                <input type="number" min="1" max="100" step="1" .value=${this._config.target_soc} @input=${this._targetSocChanged} />
+            <div class="editor-form-row">
+                <label class="editor-label">Target SOC (%):</label>
+                <input type="number" class="editor-field" min="1" max="100" step="1" .value=${this._config.target_soc} @input=${this._targetSocChanged} />
             </div>
         `;
     }
@@ -141,6 +164,22 @@ export class EvChargeulatorCardEditor extends LitElement {
         this._config = { ...this._config, target_soc: Number((e.target as HTMLInputElement).value) };
         this._emitConfigChanged();
     }
+    _showHeaderChanged(e: Event) {
+        this._config = { ...this._config, show_header: (e.target as HTMLInputElement).checked };
+        this._emitConfigChanged();
+    }
+    _showPlanHeaderChanged(e: Event) {
+        this._config = { ...this._config, show_plan_header: (e.target as HTMLInputElement).checked };
+        this._emitConfigChanged();
+    }
+    _planHeaderTextChanged(e: Event) {
+        this._config = { ...this._config, plan_header_text: (e.target as HTMLInputElement).value };
+        this._emitConfigChanged();
+    }
+    _showSummaryChanged(e: Event) {
+        this._config = { ...this._config, show_summary: (e.target as HTMLInputElement).checked };
+        this._emitConfigChanged();
+    }
     _emitConfigChanged() {
         this.dispatchEvent(
             new CustomEvent('config-changed', {
@@ -151,19 +190,7 @@ export class EvChargeulatorCardEditor extends LitElement {
         );
     }
     static styles = css`
-        div {
-            margin-bottom: 1em;
-        }
-        label {
-            display: inline-block;
-            min-width: 170px;
-            margin-right: 0.5em;
-        }
-        input,
-        select {
-            margin-bottom: 4px;
-        }
+        ${unsafeCSS(styleString)}
     `;
 }
-
 customElements.define('ev-chargeulator-card-editor', EvChargeulatorCardEditor);

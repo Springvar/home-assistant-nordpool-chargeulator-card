@@ -1,5 +1,6 @@
-import { LitElement, html, css } from 'lit';
+import { LitElement, html, css, unsafeCSS } from 'lit';
 import { property } from 'lit/decorators.js';
+import styleString from './ev-chargeulator-card.css?raw';
 import './ev-chargeulator-card-editor';
 import type { EvChargeulatorCardEditor } from './ev-chargeulator-card-editor';
 import { getOptimalChargePlan, PriceSlot } from './ev-charging-calc';
@@ -16,11 +17,18 @@ export interface EvChargeulatorCardConfig {
     energy_out_unit?: string;
     target_soc: number;
     title?: string;
+    show_header?: boolean;
+    show_plan_header?: boolean;
+    show_summary?: boolean;
+    plan_header_text?: string;
 }
 
 class EvChargeulatorCard extends LitElement {
     @property({ attribute: false }) hass: any;
     @property({ type: Object }) private _config!: EvChargeulatorCardConfig;
+
+    private _timerId?: number;
+    private _firstChargeSlotStart?: number;
 
     setConfig(config: EvChargeulatorCardConfig) {
         this._config = config;
@@ -51,26 +59,69 @@ class EvChargeulatorCard extends LitElement {
             energy_out_value: 6.6,
             energy_out_unit: 'kW',
             target_soc: 90,
-            title: 'EV Chargeulator'
+            title: 'EV Chargeulator',
+            show_header: true,
+            show_plan_header: true,
+            show_summary: true,
+            plan_header_text: 'Charge plan:'
         };
+    }
+
+    connectedCallback() {
+        super.connectedCallback();
+        this._timerId = window.setInterval(() => {
+            if (this._firstChargeSlotStart && Date.now() > this._firstChargeSlotStart) {
+                this.requestUpdate();
+            }
+        }, 60000);
+    }
+    disconnectedCallback() {
+        super.disconnectedCallback();
+        if (this._timerId) {
+            clearInterval(this._timerId);
+            this._timerId = undefined;
+        }
     }
 
     render() {
         if (!this.hass || !this._config) {
             return html`<div>Not configured</div>`;
         }
-    const { price_entity, soc_entity, battery_size_kwh, target_soc, title,
-        energy_in_value, energy_in_unit, energy_out_value, energy_out_unit } = this._config;
-
+        const {
+            price_entity,
+            soc_entity,
+            battery_size_kwh,
+            target_soc,
+            title,
+            energy_in_value,
+            energy_in_unit,
+            energy_out_value,
+            energy_out_unit,
+            show_header = true,
+            show_plan_header = true,
+            show_summary = true,
+            plan_header_text = 'Charge plan:'
+        } = this._config;
         const priceSensor = this.hass.states?.[price_entity];
         const socSensor = this.hass.states?.[soc_entity];
 
         if (!priceSensor || !socSensor) {
-            return html`<ha-card>
-                <div class="card-header">${title || 'EV Chargeulator'}</div>
-                <div style="color:red;">Missing sensor data!</div>
-            </ha-card>`;
-        }
+            return html`
+            <ha-card>
+                <div class="wrapper with-header">
+                        ${show_header ? html`
+                            <div id="header">
+                                <div id="header__title">
+                            <span>${title || 'EV Chargeulator'}</span>
+                        </div>
+                    </div>
+                        ` : null}
+                    <div class="main-content">
+                        <div style="color:red;">Missing sensor data!</div>
+                        </div>
+                    </div>
+                </ha-card>`;
+    }
 
         type SensorSlot = { start: string; end: string; value: number };
         const slots: SensorSlot[] = [...(priceSensor.attributes?.raw_today || []), ...(priceSensor.attributes?.raw_tomorrow || [])];
@@ -98,31 +149,31 @@ class EvChargeulatorCard extends LitElement {
         }
 
         const now = Date.now();
-        priceSlots = priceSlots.filter((slot) => slot.end > now);
+        priceSlots = priceSlots.filter((slot) => slot.start > now);
 
-    let inVal = Number(energy_in_value);
-    let outVal = energy_out_value != null ? Number(energy_out_value) : inVal;
-    let inUnit = energy_in_unit || 'kW';
-    let outUnit = energy_out_unit || inUnit;
+        let inVal = Number(energy_in_value);
+        let outVal = energy_out_value != null ? Number(energy_out_value) : inVal;
+        let inUnit = energy_in_unit || 'kW';
+        let outUnit = energy_out_unit || inUnit;
 
-    const slotLengthH = 0.25;
-    function getKWh(val: number, unit: string): number {
-        if (!unit || unit === 'kWh') return val;
-        if (unit === 'kW') return val * slotLengthH;
-        if (unit === 'Wh') return val / 1000;
-        return val;
-    }
-    const inKWh = getKWh(inVal, inUnit);
-    const outKWh = getKWh(outVal, outUnit);
+        const slotLengthH = 0.25;
+        function getKWh(val: number, unit: string): number {
+            if (!unit || unit === 'kWh') return val;
+            if (unit === 'kW') return val * slotLengthH;
+            if (unit === 'Wh') return val / 1000;
+            return val;
+        }
+        const inKWh = getKWh(inVal, inUnit);
+        const outKWh = getKWh(outVal, outUnit);
 
         const currentSOC = Number(socSensor.state);
         const targetSOCNum = Number(target_soc);
         const plan = getOptimalChargePlan({
-        currentSOC: currentSOC,
+            currentSOC: currentSOC,
             targetSOC: targetSOCNum,
-        batterySizeKWh: Number(battery_size_kwh),
-        energy_in_per_slot: inKWh,
-        energy_out_per_slot: outKWh,
+            batterySizeKWh: Number(battery_size_kwh),
+            energy_in_per_slot: inKWh,
+            energy_out_per_slot: outKWh,
             priceSlots,
             minimumPriceSlotsPerChargeSlot: 1,
             maximumChargeSlotsInPlan: 3
@@ -131,8 +182,8 @@ class EvChargeulatorCard extends LitElement {
         let chargeSlotsList = html``;
         let totalEnergy = 0;
         let totalCost = 0;
-
         if (Array.isArray(plan.chargeSlots) && plan.chargeSlots.length > 0) {
+            this._firstChargeSlotStart = plan.chargeSlots[0].start;
             totalEnergy = plan.chargeSlots.reduce((sum, cs) => sum + (cs.energy || 0), 0);
             totalCost = plan.chargeSlots.reduce((sum, cs) => sum + (cs.cost || 0), 0);
 
@@ -140,44 +191,43 @@ class EvChargeulatorCard extends LitElement {
                 <ul>
                     ${plan.chargeSlots.map((cs: ChargeSlot) =>
                         cs && typeof cs.start !== 'undefined'
-                            ? html`
-                                  <li>
-                                      ${formatTime(cs.start)}–${formatTime(cs.end)}, ${cs.energy.toFixed(2)} kWh, ${cs.cost.toFixed(2)}
-                                  </li>
-                              `
+                            ? html` <li>${formatTime(cs.start)}–${formatTime(cs.end)}, ${cs.energy.toFixed(2)} kWh, ${cs.cost.toFixed(2)}</li> `
                             : html`<li><em>Missing slot data</em></li>`
                     )}
                 </ul>
-                <div style="margin-top:0.5em;">
-                    <strong>Total Energy:</strong> ${totalEnergy.toFixed(2)} kWh<br />
-                    <strong>Total Cost:</strong> ${totalCost.toFixed(2)}
-                </div>
             `;
         } else {
+            this._firstChargeSlotStart = undefined;
             chargeSlotsList = html`<em>No charging needed</em>`;
         }
+
         return html`
             <ha-card>
-                <div class="card-header">${title || 'EV Chargeulator'}</div>
-                <div style="margin:1em 0;">
-                    <strong>Recommended Charge Plan:</strong><br />
-                    ${chargeSlotsList}
+                <div class="wrapper with-header">
+                    ${show_header ? html`
+                        <div id="header">
+                            <div id="header__title">
+                                <span>${title || 'EV Chargeulator'}</span>
+                            </div>
+                        </div>
+                    ` : null}
+                    <div class="main-content">
+                        ${show_plan_header ? html`<strong>${plan_header_text}</strong><br />` : null}
+                        ${chargeSlotsList}
+                        ${show_summary && Array.isArray(plan.chargeSlots) && plan.chargeSlots.length > 0 ? html`
+                            <div style="margin-top:0.5em;">
+                                <strong>Total energy estimate:</strong> ${totalEnergy.toFixed(2)} kWh<br />
+                                <strong>Total cost estimate:</strong> ${totalCost.toFixed(2)}
+                            </div>
+                        ` : null}
+                    </div>
                 </div>
             </ha-card>
         `;
     }
+
     static styles = css`
-        ha-card {
-            padding: 16px;
-        }
-        .card-header {
-            font-weight: bold;
-            font-size: 1.2em;
-            margin-bottom: 10px;
-        }
-        div {
-            margin: 8px 0;
-        }
+        ${unsafeCSS(styleString)}
     `;
 }
 
