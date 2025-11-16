@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>EV Chargeulator Card Editor Test</title>
+        <link rel="icon" href="favicon.ico" />
+        <script type="module" src="../dist/home-assistant-nordpool-chargeulator-card.js"></script>
+        <style>
+            body {
+                font-family: sans-serif;
+                margin: 20px;
+            }
+            ev-charging-optimizer-card-editor {
+                display: block;
+                max-width: 600px;
+                margin: 20px auto;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>EV Chargeulator Card Editor Test</h1>
+        <div id="editor-container"></div>
+        <script type="module">
+            import { parseYamlConfig } from './parse-yaml.js';
+
+            async function main() {
+                const yamlText = await fetch('./sensor.yaml').then((r) => r.text());
+                const sensorData = parseYamlConfig(yamlText);
+
+                const hass = {
+                    states: {
+                        'sensor.nordpool_kwh_no3_nok_3_10_025': {
+                            state: String(sensorData.current_price ?? 0),
+                            attributes: {
+                                current_price: sensorData.current_price,
+                                raw_today: Array.isArray(sensorData.raw_today) ? sensorData.raw_today : [],
+                                raw_tomorrow: Array.isArray(sensorData.raw_tomorrow) ? sensorData.raw_tomorrow : []
+                            }
+                        },
+                        'sensor.ev_soc': {
+                            state: '40',
+                            attributes: { friendly_name: 'EV Battery SOC' }
+                        }
+                    }
+                };
+
+                const config = {
+                    price_entity: 'sensor.nordpool_kwh_no3_nok_3_10_025',
+                    soc_entity: 'sensor.ev_soc',
+                    battery_size_kwh: 82,
+                    charge_rate_kw: 7,
+                    energy_in_value: 7,
+                    energy_in_unit: 'kW',
+                    energy_out_value: 6.6,
+                    energy_out_unit: 'kW',
+                    target_soc: 90,
+                    title: 'EV Chargeulator'
+                };
+
+                const el = document.createElement('ev-chargeulator-card-editor');
+                el.hass = hass;
+                if (el.setConfig) el.setConfig(config);
+                document.getElementById('editor-container').appendChild(el);
+            }
+
+            main();
+        </script>
+    </body>
+</html>

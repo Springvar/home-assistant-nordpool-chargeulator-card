@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>EV Chargeulator Card Test</title>
+        <link rel="icon" href="favicon.ico" />
+        <script type="module" src="../dist/home-assistant-nordpool-chargeulator-card.js"></script>
+        <style>
+            body {
+                font-family: sans-serif;
+                margin: 20px;
+            }
+            ha-card {
+                display: block;
+                max-width: 400px;
+                margin: 20px auto;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>EV Chargeulator Card Test</h1>
+        <div id="card-container"></div>
+        <script type="module">
+            import { parseYamlConfig } from './parse-yaml.js';
+
+            async function main() {
+                const yamlText = await fetch('./sensor.yaml').then((r) => r.text());
+                const sensorData = parseYamlConfig(yamlText);
+
+                console.log('Parsed YAML:', sensorData);
+
+                const slots = Array.isArray(sensorData.raw_today) ? sensorData.raw_today : [];
+                const earliestEndRaw = slots.length ? slots[0].end : '"2025-11-15T00:15:00+01:00"';
+                const earliestEndTs = earliestEndRaw.replace(/^"+|"+$/g, '');
+                const FAKE_NOW_MS = new Date(earliestEndTs).getTime();
+
+                window.Date.now = () => FAKE_NOW_MS;
+                const _RealDate = Date;
+                window.Date = function (...args) {
+                    if (args.length === 0) return new _RealDate(FAKE_NOW_MS);
+                    return new _RealDate(...args);
+                };
+                window.Date.now = () => FAKE_NOW_MS;
+
+                console.log('Set time:', new Date(window.Date.now()).toISOString());
+
+                const hass = {
+                    states: {
+                        'sensor.nordpool_kwh_no3_nok_3_10_025': {
+                            state: String(sensorData.current_price ?? 0),
+                            attributes: {
+                                current_price: sensorData.current_price,
+                                raw_today: Array.isArray(sensorData.raw_today) ? sensorData.raw_today : [],
+                                raw_tomorrow: Array.isArray(sensorData.raw_tomorrow) ? sensorData.raw_tomorrow : [],
+                                unit_of_measurement: sensorData.unit_of_measurement || 'NOK/kWh',
+                                device_class: sensorData.device_class || 'monetary',
+                                friendly_name: sensorData.friendly_name || 'nordpool_kwh_no3_nok_3_10_025'
+                            }
+                        },
+                        'sensor.ev_soc': {
+                            state: '52',
+                            attributes: { friendly_name: 'EV Battery SOC' }
+                        }
+                    }
+                };
+
+                const config = {
+                    price_entity: 'sensor.nordpool_kwh_no3_nok_3_10_025',
+                    soc_entity: 'sensor.ev_soc',
+                    battery_size_kwh: 82,
+                    charge_rate_kw: 7,
+                    energy_in_value: 7,
+                    energy_in_unit: 'kW',
+                    energy_out_value: 6.6,
+                    energy_out_unit: 'kW',
+                    target_soc: 80,
+                    title: 'EV Chargeulator'
+                };
+
+                const el = document.createElement('ev-chargeulator-card');
+                el.hass = hass;
+                el.setConfig(config);
+                document.getElementById('card-container').appendChild(el);
+            }
+
+            main();
+        </script>
+    </body>
+</html>

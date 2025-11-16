@@ -1,0 +1,10 @@
+{
+  "livePreview.defaultPreviewPath": "/test/editor.html",
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "[javascript]": {
+    "editor.formatOnSave": true
+  },
+  "[json]": {
+    "editor.formatOnSave": true
+  }
+}
