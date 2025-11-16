@@ -3,9 +3,8 @@ import { property } from 'lit/decorators.js';
 import styleString from './ev-chargeulator-card.css?raw';
 import './ev-chargeulator-card-editor';
 import type { EvChargeulatorCardEditor } from './ev-chargeulator-card-editor';
-import { getOptimalChargePlan, PriceSlot } from './ev-charging-calc';
-import type { ChargeSlot } from './ev-charging-calc';
-import { formatTime } from './utils';
+import { ChargeSlot, getOptimalChargePlan, PriceSlot } from './ev-charging-calc';
+import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 
 export interface EvChargeulatorCardConfig {
     price_entity: string;
@@ -21,6 +20,7 @@ export interface EvChargeulatorCardConfig {
     show_plan_header?: boolean;
     show_summary?: boolean;
     plan_header_text?: string;
+    plan_template?: string;
 }
 
 class EvChargeulatorCard extends LitElement {
@@ -83,6 +83,40 @@ class EvChargeulatorCard extends LitElement {
         }
     }
 
+    private _renderPlanTemplate(template: string, slots: ChargeSlot[]): string {
+        const repeatStart = template.indexOf('%repeat.start%');
+        const repeatEnd = template.indexOf('%repeat.end%');
+        if (repeatStart === -1 || repeatEnd === -1 || repeatEnd < repeatStart) return template;
+        const before = template.substring(0, repeatStart);
+        const repeatBlock = template.substring(repeatStart + 14, repeatEnd);
+        const after = template.substring(repeatEnd + 13);
+        let rows = slots
+            .map((cs) => {
+                const startDate = new Date(cs.start);
+                const endDate = new Date(cs.end);
+                const fromDay = startDate.getDate().toString().padStart(2, '0');
+                const fromMonth = (startDate.getMonth() + 1).toString().padStart(2, '0');
+                const toDay = endDate.getDate().toString().padStart(2, '0');
+                const toMonth = (endDate.getMonth() + 1).toString().padStart(2, '0');
+                const fromTime = startDate.getHours().toString().padStart(2, '0') + ':' + startDate.getMinutes().toString().padStart(2, '0');
+                const toTime = endDate.getHours().toString().padStart(2, '0') + ':' + endDate.getMinutes().toString().padStart(2, '0');
+                const sameDay = fromDay === toDay && fromMonth === toMonth;
+                const fromFull = sameDay ? fromTime : `${fromDay}.${fromMonth} ${fromTime}`;
+                const toFull = sameDay ? toTime : `${toDay}.${toMonth} ${toTime}`;
+                let row = repeatBlock
+                    .replace(/%from%/g, fromFull)
+                    .replace(/%to%/g, toFull)
+                    .replace(/%fromTime%/g, fromTime)
+                    .replace(/%toTime%/g, toTime)
+                    .replace(/%energy%/g, cs.energy?.toFixed(2) ?? '')
+                    .replace(/%cost%/g, cs.cost?.toFixed(2) ?? '')
+                    .replace(/%charge%/g, cs.charge?.toFixed(0) ?? '');
+                return row;
+            })
+            .join('');
+        return before + rows + after;
+    }
+
     render() {
         if (!this.hass || !this._config) {
             return html`<div>Not configured</div>`;
@@ -101,27 +135,30 @@ class EvChargeulatorCard extends LitElement {
             show_plan_header = true,
             show_summary = true,
             plan_header_text = 'Charge plan:'
+            // plan_template
         } = this._config;
+
         const priceSensor = this.hass.states?.[price_entity];
         const socSensor = this.hass.states?.[soc_entity];
 
         if (!priceSensor || !socSensor) {
-            return html`
-            <ha-card>
+            return html` <ha-card>
                 <div class="wrapper with-header">
-                        ${show_header ? html`
-                            <div id="header">
-                                <div id="header__title">
-                            <span>${title || 'EV Chargeulator'}</span>
-                        </div>
-                    </div>
-                        ` : null}
+                    ${show_header
+                        ? html`
+                              <div id="header">
+                                  <div id="header__title">
+                                      <span>${title || 'EV Chargeulator'}</span>
+                                  </div>
+                              </div>
+                          `
+                        : null}
                     <div class="main-content">
                         <div style="color:red;">Missing sensor data!</div>
-                        </div>
                     </div>
-                </ha-card>`;
-    }
+                </div>
+            </ha-card>`;
+        }
 
         type SensorSlot = { start: string; end: string; value: number };
         const slots: SensorSlot[] = [...(priceSensor.attributes?.raw_today || []), ...(priceSensor.attributes?.raw_tomorrow || [])];
@@ -179,47 +216,48 @@ class EvChargeulatorCard extends LitElement {
             maximumChargeSlotsInPlan: 3
         });
 
-        let chargeSlotsList = html``;
+        const planTemplate =
+            this._config.plan_template ??
+            `<ul>
+%repeat.start%
+<li>%from%-%to% %energy% kWh %cost%</li>
+%repeat.end%
+</ul>`;
         let totalEnergy = 0;
         let totalCost = 0;
         if (Array.isArray(plan.chargeSlots) && plan.chargeSlots.length > 0) {
             this._firstChargeSlotStart = plan.chargeSlots[0].start;
             totalEnergy = plan.chargeSlots.reduce((sum, cs) => sum + (cs.energy || 0), 0);
             totalCost = plan.chargeSlots.reduce((sum, cs) => sum + (cs.cost || 0), 0);
-
-            chargeSlotsList = html`
-                <ul>
-                    ${plan.chargeSlots.map((cs: ChargeSlot) =>
-                        cs && typeof cs.start !== 'undefined'
-                            ? html` <li>${formatTime(cs.start)}–${formatTime(cs.end)}, ${cs.energy.toFixed(2)} kWh, ${cs.cost.toFixed(2)}</li> `
-                            : html`<li><em>Missing slot data</em></li>`
-                    )}
-                </ul>
-            `;
         } else {
             this._firstChargeSlotStart = undefined;
-            chargeSlotsList = html`<em>No charging needed</em>`;
         }
 
         return html`
             <ha-card>
                 <div class="wrapper with-header">
-                    ${show_header ? html`
-                        <div id="header">
-                            <div id="header__title">
-                                <span>${title || 'EV Chargeulator'}</span>
-                            </div>
-                        </div>
-                    ` : null}
+                    ${show_header
+                        ? html`
+                              <div id="header">
+                                  <div id="header__title">
+                                      <span>${title || 'EV Chargeulator'}</span>
+                                  </div>
+                              </div>
+                          `
+                        : null}
                     <div class="main-content">
                         ${show_plan_header ? html`<strong>${plan_header_text}</strong><br />` : null}
-                        ${chargeSlotsList}
-                        ${show_summary && Array.isArray(plan.chargeSlots) && plan.chargeSlots.length > 0 ? html`
-                            <div style="margin-top:0.5em;">
-                                <strong>Total energy estimate:</strong> ${totalEnergy.toFixed(2)} kWh<br />
-                                <strong>Total cost estimate:</strong> ${totalCost.toFixed(2)}
-                            </div>
-                        ` : null}
+                        ${Array.isArray(plan.chargeSlots) && plan.chargeSlots.length > 0
+                            ? unsafeHTML(this._renderPlanTemplate(planTemplate, plan.chargeSlots))
+                            : html`<em>No charging needed</em>`}
+                        ${show_summary && Array.isArray(plan.chargeSlots) && plan.chargeSlots.length > 0
+                            ? html`
+                                  <div style="margin-top:0.5em;">
+                                      <strong>Total energy estimate:</strong> ${totalEnergy.toFixed(2)} kWh<br />
+                                      <strong>Total cost estimate:</strong> ${totalCost.toFixed(2)}
+                                  </div>
+                              `
+                            : null}
                     </div>
                 </div>
             </ha-card>

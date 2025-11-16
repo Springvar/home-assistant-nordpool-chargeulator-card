@@ -9,7 +9,7 @@ export class EvChargeulatorCardEditor extends LitElement {
         price_entity: '',
         soc_entity: '',
         battery_size_kwh: 60,
-        energy_in_value: 7,
+        energy_in_value: 7.5,
         energy_in_unit: 'kW',
         energy_out_value: undefined,
         energy_out_unit: undefined,
@@ -18,7 +18,8 @@ export class EvChargeulatorCardEditor extends LitElement {
         show_header: true,
         show_plan_header: true,
         show_summary: true,
-        plan_header_text: 'Charge plan:'
+        plan_header_text: 'Charge plan:',
+        plan_template: `<ul>\n%repeat.start%\n<li>%from%-%to% %energy% kWh %cost%</li>\n%repeat.end%\n</ul>`
     };
 
     setConfig(config: EvChargeulatorCardConfig) {
@@ -58,24 +59,19 @@ export class EvChargeulatorCardEditor extends LitElement {
         return html`
             <div class="editor-form-row">
                 <label class="editor-label">Card Title:</label>
-                    <div class="minor-label-group">
-                        <input type="checkbox" class="editor-checkbox" .checked=${this._config.show_header ?? true} @change=${this._showHeaderChanged} />
-                        <label class="inline-minor-label">(show)</label>
-                    </div>
-                    <input type="text" class="editor-field" .value=${this._config.title ?? 'EV Chargeulator'} @input=${this._titleChanged} />
+                <div class="minor-label-group">
+                    <input type="checkbox" class="editor-checkbox" .checked=${this._config.show_header ?? true} @change=${this._showHeaderChanged} />
+                    <label class="inline-minor-label">(show)</label>
                 </div>
-                <div class="editor-form-row">
-                    <label class="editor-label">Plan Header:</label>
-                        <div class="minor-label-group">
-                            <input type="checkbox" class="editor-checkbox" .checked=${this._config.show_plan_header ?? true} @change=${this._showPlanHeaderChanged} />
-                            <label class="inline-minor-label">(show)</label>
-                        </div>
-                    <input type="text" class="editor-field" .value=${this._config.plan_header_text ?? 'Charge plan:'} @input=${this._planHeaderTextChanged} />
-                </div>
+                <input type="text" class="editor-field" .value=${this._config.title ?? 'EV Chargeulator'} @input=${this._titleChanged} />
             </div>
             <div class="editor-form-row">
-                <label class="editor-label">Show Summary:</label>
-                <input type="checkbox" class="editor-checkbox" .checked=${this._config.show_summary ?? true} @change=${this._showSummaryChanged} />
+                <label class="editor-label">Plan Header:</label>
+                <div class="minor-label-group">
+                    <input type="checkbox" class="editor-checkbox" .checked=${this._config.show_plan_header ?? true} @change=${this._showPlanHeaderChanged} />
+                    <label class="inline-minor-label">(show)</label>
+                </div>
+                <input type="text" class="editor-field" .value=${this._config.plan_header_text ?? 'Charge plan:'} @input=${this._planHeaderTextChanged} />
             </div>
             <div class="editor-form-row">
                 <label class="editor-label">Nordpool Price Sensor:</label>
@@ -117,6 +113,26 @@ export class EvChargeulatorCardEditor extends LitElement {
             <div class="editor-form-row">
                 <label class="editor-label">Target SOC (%):</label>
                 <input type="number" class="editor-field" min="1" max="100" step="1" .value=${this._config.target_soc} @input=${this._targetSocChanged} />
+            </div>
+            <div class="editor-form-row">
+                <label class="editor-label">Charge Plan Template:</label>
+                <textarea class="editor-field" style="width:100%;min-height:80px;" @input=${this._planTemplateChanged}>${this._config.plan_template
+                        ?? `<ul>%repeat.start%\n<li>%from%-%to% %energy%kWh %cost%</li>\n%repeat.end%\n</ul>`}
+                </textarea>
+                <div class="editor-note">
+                    <strong>Available variables:</strong><br />
+                    <code>%from%</code> — From (HH:MM or dd.mm HH:MM if next day)<br />
+                    <code>%to%</code> — To (HH:MM or dd.mm HH:MM if next day)<br />
+                    <code>%fromTime%</code> — From (HH:MM)<br />
+                    <code>%toTime%</code> — To (HH:MM)<br />
+                    <code>%energy%</code> — Est. energy usage<br />
+                    <code>%cost%</code> — Est. cost<br />
+                    <code>%charge%</code> — Est. charge level (at end of slot)
+                </div>
+            </div>
+            <div class="editor-form-row">
+                <label class="editor-label">Show Summary:</label>
+                <input type="checkbox" class="editor-checkbox" .checked=${this._config.show_summary ?? true} @change=${this._showSummaryChanged} />
             </div>
         `;
     }
@@ -174,6 +190,10 @@ export class EvChargeulatorCardEditor extends LitElement {
     }
     _planHeaderTextChanged(e: Event) {
         this._config = { ...this._config, plan_header_text: (e.target as HTMLInputElement).value };
+        this._emitConfigChanged();
+    }
+    _planTemplateChanged(e: Event) {
+        this._config = { ...this._config, plan_template: (e.target as HTMLTextAreaElement).value };
         this._emitConfigChanged();
     }
     _showSummaryChanged(e: Event) {
