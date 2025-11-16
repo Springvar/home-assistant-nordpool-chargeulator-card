@@ -1,8 +1,8 @@
 {
-    "name": "ev-charging-optimizer-card",
+    "name": "home-assistant-nordpool-chargeulator-card",
     "version": "0.1.0",
     "description": "Home Assistant Lovelace card to optimize and visualize EV charging with dynamic Nordpool prices.",
-    "main": "ev-charging-optimizer-card.js",
+    "main": "./dist/home-assistant-nordpool-chargeulator.js",
     "scripts": {
         "build": "vite build",
         "dev": "vite",
@@ -12,7 +12,7 @@
     "author": "Springvar",
     "repository": {
         "type": "git",
-        "url": "https://github.com/Springvar/home-assistant-ev-charging-optimizer-card"
+        "url": "https://github.com/Springvar/home-assistant-nordpool-chargeulator-card"
     },
     "license": "MIT",
     "devDependencies": {
