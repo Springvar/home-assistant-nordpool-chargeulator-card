@@ -55,7 +55,7 @@ jobs:
         run: |
           mkdir -p release-artifact
           if [ -d "dist" ]; then
-            zip -r release-artifact/whereabouts-card.zip dist LICENSE README.md manifest.json
+            zip -r release-artifact/chargeulator-card.zip dist LICENSE README.md manifest.json
           else
             echo "dist directory not found — nothing to zip" && exit 1
           fi
@@ -63,6 +63,6 @@ jobs:
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: whereabouts-card
-          path: release-artifact/whereabouts-card.zip
+          name: chargeulator-card
+          path: release-artifact/chargeulator-card.zip
           retention-days: 7
