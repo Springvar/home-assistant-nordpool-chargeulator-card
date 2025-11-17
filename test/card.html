@@ -68,13 +68,13 @@
                     price_entity: 'sensor.nordpool_kwh_no3_nok_3_10_025',
                     soc_entity: 'sensor.ev_soc',
                     battery_size_kwh: 82,
-                    charge_rate_kw: 7,
-                    energy_in_value: 7,
+                    energy_in_value: 7.5,
                     energy_in_unit: 'kW',
-                    energy_out_value: 6.6,
-                    energy_out_unit: 'kW',
-                    target_soc: 80,
-                    title: 'EV Chargeulator'
+                    target_soc: 60,
+                    plan_item_template: '<li>%fromTime%-%toTime% +%chargeDelta%% %costPer10Pct%/10%</li>',
+                    show_summary: true
+
+
                 };
 
                 const el = document.createElement('ev-chargeulator-card');

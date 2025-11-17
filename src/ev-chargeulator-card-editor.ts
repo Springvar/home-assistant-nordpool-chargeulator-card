@@ -1,30 +1,15 @@
 import { LitElement, html, css, unsafeCSS } from 'lit';
 import { property, state } from 'lit/decorators.js';
-import { EvChargeulatorCardConfig } from './ev-chargeulator-card';
+import { EvChargeulatorCardConfig, EvChargeulatorCard } from './ev-chargeulator-card'; // Import DEFAULT_CONFIG
 import styleString from './ev-chargeulator-card.css?raw';
 
 export class EvChargeulatorCardEditor extends LitElement {
     @property({ attribute: false }) public hass: any;
-    @state() private _config: EvChargeulatorCardConfig = {
-        price_entity: '',
-        soc_entity: '',
-        battery_size_kwh: 60,
-        energy_in_value: 7.5,
-        energy_in_unit: 'kW',
-        energy_out_value: undefined,
-        energy_out_unit: undefined,
-        target_soc: 80,
-        max_charge_slots: 3,
-        title: 'Chargeulator',
-        show_header: true,
-        show_plan_header: true,
-        show_summary: true,
-        plan_header_text: 'Charge plan:',
-        plan_template: `<ul>\n%repeat.start%\n<li>%from%-%to% %energy% kWh %cost%</li>\n%repeat.end%\n</ul>`
-    };
+    @state() private _config: EvChargeulatorCardConfig = { ...EvChargeulatorCard.DEFAULT_CONFIG };
 
     setConfig(config: EvChargeulatorCardConfig) {
-        this._config = { ...config };
+        // Merge with defaults to ensure missing fields are defaulted
+        this._config = { ...EvChargeulatorCard.DEFAULT_CONFIG, ...config };
         this.requestUpdate();
     }
 
@@ -123,20 +108,46 @@ export class EvChargeulatorCardEditor extends LitElement {
                 </div>
             </div>
             <div class="editor-form-row">
-                <label class="editor-label">Charge plan template:</label>
-                <textarea class="editor-field" style="width:100%;min-height:80px;" @input=${this._planTemplateChanged}>
-${this._config.plan_template ?? `<ul>%repeat.start%\n<li>%from%-%to% %energy%kWh %cost%</li>\n%repeat.end%\n</ul>`}
-                </textarea
+                <label class="editor-label">Charge plan template parts:</label>
+                <div class="editor-note"><strong>Before plan:</strong></div>
+                <textarea class="editor-field" style="width:100%;min-height:30px;" @input=${this._beforePlanTemplateChanged}>
+${this._config.before_plan_template ?? '<ul>'}</textarea
+                >
+            </div>
+            <div class="editor-form-row">
+                <div class="editor-note"><strong>Plan item:</strong></div>
+                <textarea class="editor-field" style="width:100%;min-height:30px;" @input=${this._planItemTemplateChanged}>
+${this._config.plan_item_template ?? '<li>%from%-%to% %energy%kWh %cost% (%costPrKwH%/kWh, %costPerPct%/% charge)</li>'}</textarea
+                >
+            </div>
+            <div class="editor-form-row">
+                <div class="editor-note"><strong>After plan:</strong></div>
+                <textarea class="editor-field" style="width:100%;min-height:30px;" @input=${this._afterPlanTemplateChanged}>
+${this._config.after_plan_template ?? '</ul>'}</textarea
+                >
+            </div>
+            <div class="editor-form-row">
+                <label class="editor-label">Plan summary template:</label>
+                <textarea class="editor-field" style="width:100%;min-height:50px;" @input=${this._planSummaryTemplateChanged}>
+${this._config.plan_summary_template ??
+                    '<div><strong>Total energy estimate:</strong> %totalEnergy% kWh<br><strong>Total cost estimate:</strong> %totalCost%<br><strong>Average cost per kWh:</strong> %avgCostPrKwH%<br><strong>Average cost per %% charged:</strong> %avgCostPerPct%</div>'}</textarea
                 >
                 <div class="editor-note">
-                    <strong>Available variables:</strong><br />
+                    <strong>Available plan item variables:</strong><br />
                     <code>%from%</code> — From (HH:MM or dd.mm HH:MM if next day)<br />
                     <code>%to%</code> — To (HH:MM or dd.mm HH:MM if next day)<br />
                     <code>%fromTime%</code> — From (HH:MM)<br />
                     <code>%toTime%</code> — To (HH:MM)<br />
                     <code>%energy%</code> — Est. energy usage<br />
                     <code>%cost%</code> — Est. cost<br />
-                    <code>%charge%</code> — Est. charge level (at end of slot)
+                    <code>%charge%</code> — Est. charge level (at end of slot)<br />
+                    <code>%costPrKwH%</code> — Cost per kWh<br />
+                    <code>%costPerPct%</code> — Cost per percent charged<br />
+                    <strong>Available plan summary variables:</strong><br />
+                    <code>%totalEnergy%</code> — Total energy estimate<br />
+                    <code>%totalCost%</code> — Total cost estimate<br />
+                    <code>%avgCostPrKwH%</code> — Average cost per kWh<br />
+                    <code>%avgCostPerPct%</code> — Average cost per percent charged
                 </div>
             </div>
             <div class="editor-form-row">
@@ -201,8 +212,20 @@ ${this._config.plan_template ?? `<ul>%repeat.start%\n<li>%from%-%to% %energy%kWh
         this._config = { ...this._config, plan_header_text: (e.target as HTMLInputElement).value };
         this._emitConfigChanged();
     }
-    _planTemplateChanged(e: Event) {
-        this._config = { ...this._config, plan_template: (e.target as HTMLTextAreaElement).value };
+    _beforePlanTemplateChanged(e: Event) {
+        this._config = { ...this._config, before_plan_template: (e.target as HTMLTextAreaElement).value };
+        this._emitConfigChanged();
+    }
+    _planItemTemplateChanged(e: Event) {
+        this._config = { ...this._config, plan_item_template: (e.target as HTMLTextAreaElement).value };
+        this._emitConfigChanged();
+    }
+    _afterPlanTemplateChanged(e: Event) {
+        this._config = { ...this._config, after_plan_template: (e.target as HTMLTextAreaElement).value };
+        this._emitConfigChanged();
+    }
+    _planSummaryTemplateChanged(e: Event) {
+        this._config = { ...this._config, plan_summary_template: (e.target as HTMLTextAreaElement).value };
         this._emitConfigChanged();
     }
     _maxChargeSlotsChanged(e: Event) {
