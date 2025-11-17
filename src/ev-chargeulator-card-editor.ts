@@ -1,6 +1,6 @@
 import { LitElement, html, css, unsafeCSS } from 'lit';
 import { property, state } from 'lit/decorators.js';
-import { EvChargeulatorCardConfig, EvChargeulatorCard } from './ev-chargeulator-card'; // Import DEFAULT_CONFIG
+import { EvChargeulatorCardConfig, EvChargeulatorCard } from './ev-chargeulator-card';
 import styleString from './ev-chargeulator-card.css?raw';
 
 export class EvChargeulatorCardEditor extends LitElement {
@@ -8,7 +8,6 @@ export class EvChargeulatorCardEditor extends LitElement {
     @state() private _config: EvChargeulatorCardConfig = { ...EvChargeulatorCard.DEFAULT_CONFIG };
 
     setConfig(config: EvChargeulatorCardConfig) {
-        // Merge with defaults to ensure missing fields are defaulted
         this._config = { ...EvChargeulatorCard.DEFAULT_CONFIG, ...config };
         this.requestUpdate();
     }
@@ -154,6 +153,10 @@ ${this._config.plan_summary_template ??
                 <label class="editor-label">Show Summary:</label>
                 <input type="checkbox" class="editor-checkbox" .checked=${this._config.show_summary ?? true} @change=${this._showSummaryChanged} />
             </div>
+            <div class="editor-form-row">
+                <label class="editor-label">Show Charge Slider:</label>
+                <input type="checkbox" class="editor-checkbox" .checked=${this._config.show_charge_slider ?? true} @change=${this._showChargeSliderChanged} />
+            </div>
         `;
     }
 
@@ -235,6 +238,10 @@ ${this._config.plan_summary_template ??
     }
     _showSummaryChanged(e: Event) {
         this._config = { ...this._config, show_summary: (e.target as HTMLInputElement).checked };
+        this._emitConfigChanged();
+    }
+    _showChargeSliderChanged(e: Event) {
+        this._config = { ...this._config, show_charge_slider: (e.target as HTMLInputElement).checked };
         this._emitConfigChanged();
     }
     _emitConfigChanged() {

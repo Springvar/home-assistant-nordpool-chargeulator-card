@@ -1,8 +1,8 @@
 ha-card {
     padding: 0;
-    background: var(--ha-card-background);
-    border-radius: 12px;
-    box-shadow: var(--ha-card-box-shadow, 0 2px 8px rgba(0,0,0,0.05));
+    background: var(--ha-card-background, var(--card-background-color, #fff));
+    border-radius:var(--ha-card-border-radius, var(--ha-border-radius-lg));
+    box-shadow: var(--ha-card-box-shadow, none);
 }
 .wrapper.with-header {
     padding: 0;
@@ -11,7 +11,7 @@ ha-card {
     padding: 16px 16px 8px 16px;
     border-top-left-radius: 12px;
     border-top-right-radius: 12px;
-    background: var(--header-background, var(--ha-card-background));
+    background: var(--header-background, var(--ha-card-background), var(--card-background-color, #fff));
     border-bottom: 1px solid var(--divider-color);
 }
 #header__title {
@@ -29,6 +29,21 @@ div {
 }
 div#header {
     margin-top: 0px;
+}
+.main-content ul {
+    padding-left: 0.4em;
+    margin-top: 0.3em;
+    margin-bottom: 0.3em;
+    list-style-position: inside;
+}
+.main-content li {
+    font-size: 0.96em;
+    margin: 0.08em 0;
+    padding-left: 0;
+    list-style-type: disc;
+}
+.main-content li::marker {
+    font-size: 0.7em;
 }
 .minor-label-group {
     display: flex;

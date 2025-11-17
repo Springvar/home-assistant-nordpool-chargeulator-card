@@ -12,10 +12,9 @@ export interface EvChargeulatorCardConfig {
     show_plan_header?: boolean;
     plan_header_text?: string;
     show_summary?: boolean;
-
+    show_charge_slider?: boolean;
     price_entity: string;
     soc_entity: string;
-
     battery_size_kwh: number;
     energy_in_value: number;
     energy_in_unit: string;
@@ -24,7 +23,6 @@ export interface EvChargeulatorCardConfig {
     target_soc: number;
     max_charge_slots?: number;
     over_section_slots?: number;
-
     before_plan_template?: string;
     plan_item_template?: string;
     after_plan_template?: string;
@@ -38,6 +36,7 @@ export class EvChargeulatorCard extends LitElement {
         show_plan_header: true,
         plan_header_text: 'Charge plan:',
         show_summary: true,
+        show_charge_slider: true,
         price_entity: '',
         soc_entity: '',
         battery_size_kwh: 60,
@@ -62,12 +61,14 @@ export class EvChargeulatorCard extends LitElement {
 
     @property({ attribute: false }) hass: any;
     @property({ type: Object }) private config!: EvChargeulatorCardConfig;
+    @property({ type: Number }) private _sliderTargetSoc?: number;
 
     private _timerId?: number;
     private _firstChargeSlotStart?: number;
 
     setConfig(config: EvChargeulatorCardConfig) {
         this.config = { ...EvChargeulatorCard.DEFAULT_CONFIG, ...config };
+        this._sliderTargetSoc = this.config.target_soc;
     }
 
     static async getConfigElement(config: EvChargeulatorCardConfig) {
@@ -196,7 +197,8 @@ export class EvChargeulatorCard extends LitElement {
             before_plan_template,
             plan_item_template,
             after_plan_template,
-            plan_summary_template
+            plan_summary_template,
+            show_charge_slider = true
         } = config;
 
         const priceSensor = this.hass.states?.[price_entity];
@@ -267,10 +269,10 @@ export class EvChargeulatorCard extends LitElement {
         const outKWh = getKWh(outVal, outUnit);
 
         const currentSOC = Number(socSensor.state);
-        const targetSOCNum = Number(target_soc);
+        const useTargetSoc = show_charge_slider && this._sliderTargetSoc !== undefined ? this._sliderTargetSoc : Number(target_soc);
         const plan = getOptimalChargePlan({
             currentSOC: currentSOC,
-            targetSOC: targetSOCNum,
+            targetSOC: useTargetSoc,
             batterySizeKWh: Number(battery_size_kwh),
             energy_in_per_slot: inKWh,
             energy_out_per_slot: outKWh,
@@ -303,6 +305,41 @@ export class EvChargeulatorCard extends LitElement {
                           `
                         : null}
                     <div class="main-content">
+                        ${show_charge_slider
+                            ? html`
+                                  <div style="margin-bottom:22px;">
+                                      <label for="ev-target-slider"><strong>Target charge:</strong></label>
+                                      <input
+                                          id="ev-target-slider"
+                                          type="range"
+                                          min="${Math.max(currentSOC, 0)}"
+                                          max="100"
+                                          .value=${String(this._sliderTargetSoc ?? target_soc)}
+                                          step="1"
+                                          @input=${(e: Event) => {
+                                              this._sliderTargetSoc = Number((e.target as HTMLInputElement).value);
+                                              this.requestUpdate();
+                                          }}
+                                          style="width: 90%; margin: 12px 0;"
+                                      />
+                                      <div style="display:flex;justify-content:space-between;font-size:13px;color:#666;">
+                                          <span>${Math.max(currentSOC, 0)}%</span>
+                                          <span>${useTargetSoc}%</span>
+                                          <span>100%</span>
+                                      </div>
+                                      <div style="position:relative; height:6px; margin-top: 2px;">
+                                          <div
+                                              style="position:absolute;left:${((target_soc - Math.max(currentSOC, 0)) / Math.max(1, 100 - Math.max(currentSOC, 0))) *
+                                              100}%;width:2px;height:14px;background:#2196f3;margin-top:-4px;"
+                                          ></div>
+                                          <div
+                                              style="position:absolute;left:${((useTargetSoc - Math.max(currentSOC, 0)) / Math.max(1, 100 - Math.max(currentSOC, 0))) *
+                                              100}%;width:2px;height:18px;background:red;margin-top:-6px;"
+                                          ></div>
+                                      </div>
+                                  </div>
+                              `
+                            : null}
                         ${show_plan_header ? html`<strong>${plan_header_text}</strong><br />` : null}
                         ${Array.isArray(plan.chargeSlots) && plan.chargeSlots.length > 0
                             ? unsafeHTML(
