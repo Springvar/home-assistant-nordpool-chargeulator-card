@@ -107,6 +107,11 @@ export class EvChargeulatorCardEditor extends LitElement {
                 </div>
             </div>
             <div class="editor-form-row">
+                <label class="editor-label">Complete Charging By:</label>
+                <input type="time" class="editor-field" .value=${this._config.complete_by ?? ''} @input=${this._completeByChanged} />
+                <div class="editor-note">(The calculation assumes this is tomorrow. Charging slots starting after this time will be removed.)</div>
+            </div>
+            <div class="editor-form-row">
                 <label class="editor-label">Charge plan template parts:</label>
                 <div class="editor-note"><strong>Before plan:</strong></div>
                 <textarea class="editor-field" style="width:100%;min-height:30px;" @input=${this._beforePlanTemplateChanged}>
@@ -234,6 +239,11 @@ ${this._config.plan_summary_template ??
     _maxChargeSlotsChanged(e: Event) {
         const val = Number((e.target as HTMLInputElement).value);
         this._config = { ...this._config, max_charge_slots: val > 0 ? val : 3 };
+        this._emitConfigChanged();
+    }
+    _completeByChanged(e: Event) {
+        const val = (e.target as HTMLInputElement).value;
+        this._config = { ...this._config, complete_by: val };
         this._emitConfigChanged();
     }
     _showSummaryChanged(e: Event) {

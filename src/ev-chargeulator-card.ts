@@ -27,6 +27,7 @@ export interface EvChargeulatorCardConfig {
     plan_item_template?: string;
     after_plan_template?: string;
     plan_summary_template?: string;
+    complete_by?: string;
 }
 
 export class EvChargeulatorCard extends LitElement {
@@ -56,7 +57,8 @@ export class EvChargeulatorCard extends LitElement {
     <strong>Total cost estimate:</strong> %totalCost%<br>
     <strong>Average cost per kWh:</strong> %avgCostPrKwH%<br>
     <strong>Average cost per % charged:</strong> %avgCostPerPct%
-</div>`
+</div>`,
+        complete_by: undefined
     };
 
     @property({ attribute: false }) hass: any;
@@ -173,6 +175,16 @@ export class EvChargeulatorCard extends LitElement {
             .join('');
     }
 
+    private getCompleteByTimestamp(complete_by?: string): number | undefined {
+        if (!complete_by) return undefined;
+        const now = new Date();
+        const [hh, mm] = complete_by.split(':').map((n) => parseInt(n, 10));
+        if (isNaN(hh) || isNaN(mm)) return undefined;
+        const complete = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hh, mm, 0, 0);
+        if (complete.getTime() < now.getTime()) complete.setDate(complete.getDate() + 1);
+        return complete.getTime();
+    }
+
     render() {
         const config = { ...EvChargeulatorCard.DEFAULT_CONFIG, ...this.config };
         if (!this.hass || !config) {
@@ -198,7 +210,8 @@ export class EvChargeulatorCard extends LitElement {
             plan_item_template,
             after_plan_template,
             plan_summary_template,
-            show_charge_slider = true
+            show_charge_slider = true,
+            complete_by
         } = config;
 
         const priceSensor = this.hass.states?.[price_entity];
@@ -253,6 +266,15 @@ export class EvChargeulatorCard extends LitElement {
         const now = Date.now();
         priceSlots = priceSlots.filter((slot) => slot.start > now);
 
+        if (config.complete_by) {
+            const [hour, minute] = config.complete_by.split(':').map(Number);
+            const tmrw = new Date(now);
+            tmrw.setDate(tmrw.getDate() + 1);
+            tmrw.setHours(hour, minute ?? 0, 0, 0);
+            const completeByMillis = tmrw.getTime();
+            priceSlots = priceSlots.filter((slot) => slot.start < completeByMillis);
+        }
+
         let inVal = Number(energy_in_value);
         let outVal = energy_out_value != null ? Number(energy_out_value) : inVal;
         let inUnit = energy_in_unit || 'kW';
@@ -270,6 +292,9 @@ export class EvChargeulatorCard extends LitElement {
 
         const currentSOC = Number(socSensor.state);
         const useTargetSoc = show_charge_slider && this._sliderTargetSoc !== undefined ? this._sliderTargetSoc : Number(target_soc);
+
+        let completeByTimestamp: number | undefined = this.getCompleteByTimestamp(complete_by);
+
         const plan = getOptimalChargePlan({
             currentSOC: currentSOC,
             targetSOC: useTargetSoc,
@@ -279,7 +304,8 @@ export class EvChargeulatorCard extends LitElement {
             priceSlots,
             minimumPriceSlotsPerChargeSlot: 1,
             maximumChargeSlotsInPlan: max_charge_slots ?? 3,
-            overSectionSlots: over_section_slots ?? 15
+            overSectionSlots: over_section_slots ?? 15,
+            completeByTimestamp: completeByTimestamp
         });
 
         let totalEnergy = 0;
@@ -364,6 +390,7 @@ export class EvChargeulatorCard extends LitElement {
                                           : '')
                               )
                             : html`<em>No charging needed</em>`}
+                        ${complete_by ? html`<div style="margin-top:10px;"><strong>Complete by:</strong> ${complete_by}</div>` : null}
                     </div>
                 </div>
             </ha-card>
