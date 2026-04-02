@@ -1,0 +1,12 @@
+price_entity: sensor.nordpool_kwh_no3_nok_3_10_025
+soc_entity: sensor.ev_soc
+battery_size_kwh: 82
+energy_in_value: 7.5
+energy_in_unit: kW
+target_soc: 85
+title: EV Charging Optimizer
+show_header: true
+show_plan_header: true
+show_summary: true
+plan_header_text: "Optimal charging plan:"
+complete_by: "07:00"

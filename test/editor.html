@@ -2,66 +2,84 @@
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
-        <title>EV Chargeulator Card Editor Test</title>
-        <link rel="icon" href="favicon.ico" />
+        <title>EV Chargeulator Card Editor Demo</title>
         <script type="module" src="../dist/home-assistant-nordpool-chargeulator-card.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
         <style>
-            body {
-                font-family: sans-serif;
-                margin: 20px;
+            :root {
+                --primary-color: #03a9f4;
+                --accent-color: #ff9800;
+                --primary-background-color: #fafafa;
+                --secondary-background-color: #e0e0e0;
+                --ha-card-background: #fff;
+                --ha-card-box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.12);
+                --primary-text-color: #212121;
+                --secondary-text-color: #757575;
             }
-            ev-charging-optimizer-card-editor {
-                display: block;
+            body {
+                background: #fafafa;
+                font-family: sans-serif;
+                margin: 0;
+                padding: 2em;
+            }
+            ev-chargeulator-card-editor {
                 max-width: 600px;
-                margin: 20px auto;
+                display: block;
+                margin: 2em auto;
             }
         </style>
     </head>
     <body>
-        <h1>EV Chargeulator Card Editor Test</h1>
-        <div id="editor-container"></div>
-        <script type="module">
-            import { parseYamlConfig } from './parse-yaml.js';
+        <ev-chargeulator-card-editor id="eveditor"></ev-chargeulator-card-editor>
+        <script>
+            const dummyPriceData = {
+                current_price: 0.75,
+                raw_today: [
+                    { start: '2026-04-02T00:00:00+02:00', end: '2026-04-02T01:00:00+02:00', value: 0.85 },
+                    { start: '2026-04-02T01:00:00+02:00', end: '2026-04-02T02:00:00+02:00', value: 0.78 },
+                    { start: '2026-04-02T02:00:00+02:00', end: '2026-04-02T03:00:00+02:00', value: 0.72 }
+                ],
+                raw_tomorrow: [],
+                unit_of_measurement: 'NOK/kWh'
+            };
 
-            async function main() {
-                const yamlText = await fetch('./sensor.yaml').then((r) => r.text());
-                const sensorData = parseYamlConfig(yamlText);
-
-                const hass = {
-                    states: {
-                        'sensor.nordpool_kwh_no3_nok_3_10_025': {
-                            state: String(sensorData.current_price ?? 0),
-                            attributes: {
-                                current_price: sensorData.current_price,
-                                raw_today: Array.isArray(sensorData.raw_today) ? sensorData.raw_today : [],
-                                raw_tomorrow: Array.isArray(sensorData.raw_tomorrow) ? sensorData.raw_tomorrow : []
-                            }
-                        },
-                        'sensor.ev_soc': {
-                            state: '40',
-                            attributes: { friendly_name: 'EV Battery SOC' }
-                        }
+            const dummyHass = {
+                states: {
+                    'sensor.nordpool_kwh_no3_nok_3_10_025': {
+                        state: String(dummyPriceData.current_price),
+                        attributes: dummyPriceData
+                    },
+                    'sensor.ev_soc': {
+                        state: '40',
+                        attributes: { friendly_name: 'EV Battery SOC' }
                     }
-                };
+                }
+            };
 
-                const config = {
-                    price_entity: 'sensor.nordpool_kwh_no3_nok_3_10_025',
-                    soc_entity: 'sensor.ev_soc',
-                    battery_size_kwh: 82,
-                    charge_rate_kw: 7,
-                    energy_in_value: 7,
-                    energy_in_unit: 'kW',
-                    target_soc: 90,
-                    title: 'Chargeulator'
-                };
-
-                const el = document.createElement('ev-chargeulator-card-editor');
-                el.hass = hass;
-                if (el.setConfig) el.setConfig(config);
-                document.getElementById('editor-container').appendChild(el);
+            function getConfigFile() {
+                const params = new URLSearchParams(window.location.search);
+                const cfgName = params.get('config');
+                return cfgName ? `${cfgName}.yaml` : 'config.yaml';
             }
 
-            main();
+            fetch(getConfigFile())
+                .then(resp => {
+                    if (!resp.ok) throw new Error("Config file not found");
+                    return resp.text();
+                })
+                .then(yamlSource => {
+                    const cardConfig = window.jsyaml.load(yamlSource);
+                    window.customElements.whenDefined('ev-chargeulator-card-editor').then(() => {
+                        const editor = document.getElementById('eveditor');
+                        editor.hass = dummyHass;
+                        if (editor.setConfig) {
+                            editor.setConfig(cardConfig);
+                        }
+                    });
+                })
+                .catch(e => {
+                    console.error("Error loading config:", e);
+                });
         </script>
     </body>
 </html>

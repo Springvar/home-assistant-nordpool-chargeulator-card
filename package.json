@@ -5,9 +5,12 @@
     "main": "./dist/home-assistant-nordpool-chargeulator.js",
     "scripts": {
         "build": "vite build",
-        "dev": "vite",
-        "test": "vitest",
-        "test:ui": "vitest --ui"
+        "build:watch": "vite build --watch",
+        "dev": "concurrently \"vite build --watch\" \"vite\" --names \"build,serve\" --prefix-colors \"cyan,green\"",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "test:ui": "vitest --ui",
+        "test:coverage": "vitest run --coverage"
     },
     "author": "Springvar",
     "repository": {
@@ -16,10 +19,14 @@
     },
     "license": "MIT",
     "devDependencies": {
-        "@vitest/ui": "^4.0.9",
+        "@vitest/coverage-v8": "^4.1.2",
+        "@vitest/ui": "4.1.2",
+        "concurrently": "^9.2.1",
+        "esbuild": "^0.27.5",
+        "jsdom": "^29.0.1",
         "lit": "^3.0.0",
         "typescript": "^5.0.0",
-        "vite": "^7.2.1",
-        "vitest": "^4.0.9"
+        "vite": "^8.0.3",
+        "vitest": "4.1.2"
     }
 }

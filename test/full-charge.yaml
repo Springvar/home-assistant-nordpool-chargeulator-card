@@ -1,0 +1,13 @@
+price_entity: sensor.nordpool_kwh_no3_nok_3_10_025
+soc_entity: sensor.ev_soc
+battery_size_kwh: 82
+energy_in_value: 11
+energy_in_unit: kW
+target_soc: 100
+title: Fast Charging to 100%
+show_header: true
+show_plan_header: true
+show_summary: true
+plan_header_text: "Fast charge plan (11kW):"
+complete_by: "06:00"
+max_charge_slots: 3

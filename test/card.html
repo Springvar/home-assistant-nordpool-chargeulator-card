@@ -2,88 +2,153 @@
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
-        <title>EV Chargeulator Card Test</title>
-        <link rel="icon" href="favicon.ico" />
+        <title>EV Chargeulator Card Demo</title>
         <script type="module" src="../dist/home-assistant-nordpool-chargeulator-card.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
         <style>
-            body {
-                font-family: sans-serif;
-                margin: 20px;
+            :root {
+                --primary-color: #03a9f4;
+                --accent-color: #ff9800;
+                --primary-background-color: #fafafa;
+                --secondary-background-color: #e0e0e0;
+                --ha-card-background: #fff;
+                --ha-card-box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.12);
+                --primary-text-color: #212121;
+                --secondary-text-color: #757575;
+                --info-color: #2196f3;
+                --success-color: #43a047;
+                --warning-color: #fb8c00;
+                --error-color: #c0392b;
             }
-            ha-card {
+            body {
+                background: #fafafa;
+                font-family: sans-serif;
+                margin: 0;
+                padding: 2em;
+            }
+            ev-chargeulator-card {
+                max-width: 500px;
                 display: block;
-                max-width: 400px;
-                margin: 20px auto;
+                margin: 2em auto;
             }
         </style>
     </head>
     <body>
-        <h1>EV Chargeulator Card Test</h1>
-        <div id="card-container"></div>
-        <script type="module">
-            import { parseYamlConfig } from './parse-yaml.js';
+        <ev-chargeulator-card id="evcard"></ev-chargeulator-card>
+        <script>
+            // Dummy price data - 24 hours with MULTIPLE low-price windows
+            // This creates an interesting charging plan with 2-3 separate charging periods
+            // Window 1: 01:00-03:00 (very cheap night hours)
+            // Window 2: 11:00-13:00 (cheap midday dip)
+            // Window 3: 22:00-23:00 (cheap late evening)
+            const dummyPriceData = {
+                current_price: 0.95,
+                raw_today: [
+                    { start: '2026-04-02T00:00:00+02:00', end: '2026-04-02T01:00:00+02:00', value: 0.55 },
+                    { start: '2026-04-02T01:00:00+02:00', end: '2026-04-02T02:00:00+02:00', value: 0.28 },  // 💰 Cheap window 1
+                    { start: '2026-04-02T02:00:00+02:00', end: '2026-04-02T03:00:00+02:00', value: 0.25 },  // 💰 Cheapest!
+                    { start: '2026-04-02T03:00:00+02:00', end: '2026-04-02T04:00:00+02:00', value: 0.30 },  // 💰 Cheap window 1
+                    { start: '2026-04-02T04:00:00+02:00', end: '2026-04-02T05:00:00+02:00', value: 0.58 },
+                    { start: '2026-04-02T05:00:00+02:00', end: '2026-04-02T06:00:00+02:00', value: 0.72 },
+                    { start: '2026-04-02T06:00:00+02:00', end: '2026-04-02T07:00:00+02:00', value: 0.88 },
+                    { start: '2026-04-02T07:00:00+02:00', end: '2026-04-02T08:00:00+02:00', value: 1.05 },  // Morning peak
+                    { start: '2026-04-02T08:00:00+02:00', end: '2026-04-02T09:00:00+02:00', value: 1.20 },  // Morning peak
+                    { start: '2026-04-02T09:00:00+02:00', end: '2026-04-02T10:00:00+02:00', value: 1.15 },
+                    { start: '2026-04-02T10:00:00+02:00', end: '2026-04-02T11:00:00+02:00', value: 0.85 },
+                    { start: '2026-04-02T11:00:00+02:00', end: '2026-04-02T12:00:00+02:00', value: 0.32 },  // 💰 Cheap window 2
+                    { start: '2026-04-02T12:00:00+02:00', end: '2026-04-02T13:00:00+02:00', value: 0.35 },  // 💰 Cheap window 2
+                    { start: '2026-04-02T13:00:00+02:00', end: '2026-04-02T14:00:00+02:00', value: 0.78 },
+                    { start: '2026-04-02T14:00:00+02:00', end: '2026-04-02T15:00:00+02:00', value: 0.82 },
+                    { start: '2026-04-02T15:00:00+02:00', end: '2026-04-02T16:00:00+02:00', value: 0.92 },
+                    { start: '2026-04-02T16:00:00+02:00', end: '2026-04-02T17:00:00+02:00', value: 1.10 },
+                    { start: '2026-04-02T17:00:00+02:00', end: '2026-04-02T18:00:00+02:00', value: 1.30 },  // Evening peak
+                    { start: '2026-04-02T18:00:00+02:00', end: '2026-04-02T19:00:00+02:00', value: 1.45 },  // Highest!
+                    { start: '2026-04-02T19:00:00+02:00', end: '2026-04-02T20:00:00+02:00', value: 1.35 },  // Evening peak
+                    { start: '2026-04-02T20:00:00+02:00', end: '2026-04-02T21:00:00+02:00', value: 1.15 },
+                    { start: '2026-04-02T21:00:00+02:00', end: '2026-04-02T22:00:00+02:00', value: 0.75 },
+                    { start: '2026-04-02T22:00:00+02:00', end: '2026-04-02T23:00:00+02:00', value: 0.38 },  // 💰 Cheap window 3
+                    { start: '2026-04-02T23:00:00+02:00', end: '2026-04-03T00:00:00+02:00', value: 0.45 }
+                ],
+                raw_tomorrow: [
+                    { start: '2026-04-03T00:00:00+02:00', end: '2026-04-03T01:00:00+02:00', value: 0.42 },
+                    { start: '2026-04-03T01:00:00+02:00', end: '2026-04-03T02:00:00+02:00', value: 0.26 },  // 💰 Cheap night
+                    { start: '2026-04-03T02:00:00+02:00', end: '2026-04-03T03:00:00+02:00', value: 0.23 },  // 💰 Very cheap!
+                    { start: '2026-04-03T03:00:00+02:00', end: '2026-04-03T04:00:00+02:00', value: 0.27 },  // 💰 Cheap night
+                    { start: '2026-04-03T04:00:00+02:00', end: '2026-04-03T05:00:00+02:00', value: 0.52 },
+                    { start: '2026-04-03T05:00:00+02:00', end: '2026-04-03T06:00:00+02:00', value: 0.68 },
+                    { start: '2026-04-03T06:00:00+02:00', end: '2026-04-03T07:00:00+02:00', value: 0.85 },
+                    { start: '2026-04-03T07:00:00+02:00', end: '2026-04-03T08:00:00+02:00', value: 1.08 },  // Morning peak
+                    { start: '2026-04-03T08:00:00+02:00', end: '2026-04-03T09:00:00+02:00', value: 1.25 },  // Morning peak
+                    { start: '2026-04-03T09:00:00+02:00', end: '2026-04-03T10:00:00+02:00', value: 1.18 },
+                    { start: '2026-04-03T10:00:00+02:00', end: '2026-04-03T11:00:00+02:00', value: 0.88 },
+                    { start: '2026-04-03T11:00:00+02:00', end: '2026-04-03T12:00:00+02:00', value: 0.65 },
+                    { start: '2026-04-03T12:00:00+02:00', end: '2026-04-03T13:00:00+02:00', value: 0.70 },
+                    { start: '2026-04-03T13:00:00+02:00', end: '2026-04-03T14:00:00+02:00', value: 0.75 },
+                    { start: '2026-04-03T14:00:00+02:00', end: '2026-04-03T15:00:00+02:00', value: 0.80 },
+                    { start: '2026-04-03T15:00:00+02:00', end: '2026-04-03T16:00:00+02:00', value: 0.95 },
+                    { start: '2026-04-03T16:00:00+02:00', end: '2026-04-03T17:00:00+02:00', value: 1.15 },
+                    { start: '2026-04-03T17:00:00+02:00', end: '2026-04-03T18:00:00+02:00', value: 1.35 },  // Evening peak
+                    { start: '2026-04-03T18:00:00+02:00', end: '2026-04-03T19:00:00+02:00', value: 1.50 },  // Highest tomorrow!
+                    { start: '2026-04-03T19:00:00+02:00', end: '2026-04-03T20:00:00+02:00', value: 1.38 },  // Evening peak
+                    { start: '2026-04-03T20:00:00+02:00', end: '2026-04-03T21:00:00+02:00', value: 1.12 },
+                    { start: '2026-04-03T21:00:00+02:00', end: '2026-04-03T22:00:00+02:00', value: 0.72 },
+                    { start: '2026-04-03T22:00:00+02:00', end: '2026-04-03T23:00:00+02:00', value: 0.48 },
+                    { start: '2026-04-03T23:00:00+02:00', end: '2026-04-04T00:00:00+02:00', value: 0.40 }
+                ],
+                unit_of_measurement: 'NOK/kWh',
+                device_class: 'monetary',
+                friendly_name: 'Nordpool Electricity Price'
+            };
 
-            async function main() {
-                const yamlText = await fetch('./sensor.yaml').then((r) => r.text());
-                const sensorData = parseYamlConfig(yamlText);
-
-                console.log('Parsed YAML:', sensorData);
-
-                const slots = Array.isArray(sensorData.raw_today) ? sensorData.raw_today : [];
-                const earliestEndRaw = slots.length ? slots[0].end : '"2025-11-15T00:15:00+01:00"';
-                const earliestEndTs = earliestEndRaw.replace(/^"+|"+$/g, '');
-                const FAKE_NOW_MS = new Date(earliestEndTs).getTime();
-
-                window.Date.now = () => FAKE_NOW_MS;
-                const _RealDate = Date;
-                window.Date = function (...args) {
-                    if (args.length === 0) return new _RealDate(FAKE_NOW_MS);
-                    return new _RealDate(...args);
-                };
-                window.Date.now = () => FAKE_NOW_MS;
-
-                console.log('Set time:', new Date(window.Date.now()).toISOString());
-
-                const hass = {
-                    states: {
-                        'sensor.nordpool_kwh_no3_nok_3_10_025': {
-                            state: String(sensorData.current_price ?? 0),
-                            attributes: {
-                                current_price: sensorData.current_price,
-                                raw_today: Array.isArray(sensorData.raw_today) ? sensorData.raw_today : [],
-                                raw_tomorrow: Array.isArray(sensorData.raw_tomorrow) ? sensorData.raw_tomorrow : [],
-                                unit_of_measurement: sensorData.unit_of_measurement || 'NOK/kWh',
-                                device_class: sensorData.device_class || 'monetary',
-                                friendly_name: sensorData.friendly_name || 'nordpool_kwh_no3_nok_3_10_025'
-                            }
-                        },
-                        'sensor.ev_soc': {
-                            state: '52',
-                            attributes: { friendly_name: 'EV Battery SOC' }
+            const dummyHass = {
+                states: {
+                    'sensor.nordpool_kwh_no3_nok_3_10_025': {
+                        state: String(dummyPriceData.current_price),
+                        attributes: dummyPriceData
+                    },
+                    'sensor.ev_soc': {
+                        state: '35',
+                        attributes: {
+                            friendly_name: 'Tesla Model 3 Battery',
+                            unit_of_measurement: '%',
+                            device_class: 'battery'
                         }
                     }
-                };
+                }
+            };
 
-                const config = {
-                    price_entity: 'sensor.nordpool_kwh_no3_nok_3_10_025',
-                    soc_entity: 'sensor.ev_soc',
-                    battery_size_kwh: 82,
-                    energy_in_value: 7.5,
-                    energy_in_unit: 'kW',
-                    target_soc: 60,
-                    plan_item_template: '<li>%fromTime%-%toTime% +%chargeDelta%% %costPer10Pct%/10%</li>',
-                    show_summary: true
-
-
-                };
-
-                const el = document.createElement('ev-chargeulator-card');
-                el.hass = hass;
-                el.setConfig(config);
-                document.getElementById('card-container').appendChild(el);
+            function getConfigFile() {
+                const params = new URLSearchParams(window.location.search);
+                const cfgName = params.get('config');
+                return cfgName ? `${cfgName}.yaml` : 'config.yaml';
             }
 
-            main();
+            async function initCard() {
+                try {
+                    const resp = await fetch(getConfigFile());
+                    if (!resp.ok) throw new Error("Config file not found");
+                    const yamlSource = await resp.text();
+                    const cardConfig = window.jsyaml.load(yamlSource);
+
+                    await window.customElements.whenDefined('ev-chargeulator-card');
+                    const card = document.getElementById('evcard');
+
+                    // Set config first, then hass, then force update
+                    card.setConfig(cardConfig);
+                    card.hass = dummyHass;
+                    card.requestUpdate();
+
+                    console.log('Card initialized with config:', cardConfig);
+                    console.log('Current SOC:', dummyHass.states['sensor.ev_soc'].state + '%');
+                    console.log('Price data loaded:', dummyPriceData.raw_today.length, 'hours today,', dummyPriceData.raw_tomorrow.length, 'hours tomorrow');
+                } catch (e) {
+                    console.error("Error initializing card:", e);
+                    document.getElementById('evcard').innerHTML =
+                        `<div style="padding: 20px; color: red;">Error: ${e.message}</div>`;
+                }
+            }
+
+            initCard();
         </script>
     </body>
 </html>
