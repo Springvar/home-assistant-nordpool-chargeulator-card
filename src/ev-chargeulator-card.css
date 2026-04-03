@@ -128,3 +128,23 @@ div#header {
     }
 }
 
+.time-control-btn {
+    background: var(--primary-color, #03a9f4);
+    border: none;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+    transition: background 0.2s;
+    min-width: 28px;
+}
+
+.time-control-btn:hover {
+    background: var(--primary-color-dark, #0288d1);
+}
+
+.time-control-btn:active {
+    background: var(--primary-color-darker, #01579b);
+}

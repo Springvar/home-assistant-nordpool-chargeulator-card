@@ -28,6 +28,10 @@ export interface EvChargeulatorCardConfig {
     after_plan_template?: string;
     plan_summary_template?: string;
     complete_by?: string;
+    slider_color_low?: string;
+    slider_color_target?: string;
+    slider_color_high?: string;
+    slider_color_max?: string;
 }
 
 export class EvChargeulatorCard extends LitElement {
@@ -47,7 +51,11 @@ export class EvChargeulatorCard extends LitElement {
         energy_out_unit: undefined,
         target_soc: 80,
         max_charge_slots: 3,
-        over_section_slots: 20,
+        over_section_slots: undefined,
+        slider_color_low: '#424242',
+        slider_color_target: '#1565c0',
+        slider_color_high: '#ff6f00',
+        slider_color_max: '#d32f2f',
         before_plan_template: '<ul>',
         plan_item_template: '<li>%from%-%to% %energy% kWh %cost% (%costPrKwH%/kWh, %costPerPct%/% charge)</li>',
         after_plan_template: '</ul>',
@@ -64,6 +72,7 @@ export class EvChargeulatorCard extends LitElement {
     @property({ attribute: false }) hass: any;
     @property({ type: Object }) private config!: EvChargeulatorCardConfig;
     @property({ type: Number }) private _sliderTargetSoc?: number;
+    @property({ type: Boolean }) private _showCompleteByControls = false;
 
     private _timerId?: number;
     private _firstChargeSlotStart?: number;
@@ -185,6 +194,59 @@ export class EvChargeulatorCard extends LitElement {
         return complete.getTime();
     }
 
+    private _getTimeInterval(): number {
+        // Fixed 15-minute intervals for good balance between adjustability and granularity
+        return 15;
+    }
+
+    private _adjustCompleteBy(adjustment: number | 'earliest' | 'latest') {
+        const currentCompleteBy = this.config.complete_by || '07:00';
+        const [currentHours, currentMinutes] = currentCompleteBy.split(':').map(Number);
+        let totalMinutes = currentHours * 60 + currentMinutes;
+        const timeInterval = this._getTimeInterval();
+
+        if (adjustment === 'earliest') {
+            // Calculate earliest time needed based on battery, SOC, and charge rate
+            const socSensor = this.hass?.states?.[this.config.soc_entity];
+            if (!socSensor) return;
+
+            const currentSOC = Number(socSensor.state);
+            const targetSOC = this.config.target_soc || 80;
+            const batterySize = this.config.battery_size_kwh || 82;
+            const chargeRate = this.config.energy_in_value || 7.5;
+
+            const energyNeeded = ((targetSOC - currentSOC) / 100) * batterySize;
+            const hoursNeeded = Math.ceil(energyNeeded / chargeRate);
+
+            const now = new Date();
+            const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+            // Round up to next interval
+            totalMinutes = Math.ceil((nowMinutes + hoursNeeded * 60) / timeInterval) * timeInterval;
+        } else if (adjustment === 'latest') {
+            // Jump to end of price data - always use 23:00 as the latest safe time
+            // (avoids 00:00 wrap-around issue where 00:00 is interpreted as start of day)
+            totalMinutes = 23 * 60; // 23:00
+        } else {
+            // Numeric adjustment in minutes (should match timeInterval)
+            totalMinutes += adjustment;
+        }
+
+        // Constrain to valid range: 0:00 to 23:00
+        totalMinutes = Math.max(0, Math.min(23 * 60, totalMinutes));
+
+        // Round to appropriate interval based on price slot duration
+        totalMinutes = Math.round(totalMinutes / timeInterval) * timeInterval;
+
+        const newHours = Math.floor(totalMinutes / 60);
+        const newMinutes = totalMinutes % 60;
+        const newCompleteBy = `${String(newHours).padStart(2, '0')}:${String(newMinutes).padStart(2, '0')}`;
+
+        // Update config and trigger re-render
+        this.config = { ...this.config, complete_by: newCompleteBy };
+        this.requestUpdate();
+    }
+
     render() {
         const config = { ...EvChargeulatorCard.DEFAULT_CONFIG, ...this.config };
         if (!this.hass || !config) {
@@ -211,7 +273,11 @@ export class EvChargeulatorCard extends LitElement {
             after_plan_template,
             plan_summary_template,
             show_charge_slider = true,
-            complete_by
+            complete_by,
+            slider_color_low = '#424242',
+            slider_color_target = '#1565c0',
+            slider_color_high = '#ff6f00',
+            slider_color_max = '#d32f2f'
         } = config;
 
         const priceSensor = this.hass.states?.[price_entity];
@@ -295,6 +361,9 @@ export class EvChargeulatorCard extends LitElement {
 
         let completeByTimestamp: number | undefined = this.getCompleteByTimestamp(complete_by);
 
+        const maxChargeSlots = max_charge_slots ?? 3;
+        const overSectionSlots = over_section_slots ?? (maxChargeSlots * 7);
+
         const plan = getOptimalChargePlan({
             currentSOC: currentSOC,
             targetSOC: useTargetSoc,
@@ -303,8 +372,8 @@ export class EvChargeulatorCard extends LitElement {
             energy_out_per_slot: outKWh,
             priceSlots,
             minimumPriceSlotsPerChargeSlot: 1,
-            maximumChargeSlotsInPlan: max_charge_slots ?? 3,
-            overSectionSlots: over_section_slots ?? 15,
+            maximumChargeSlotsInPlan: maxChargeSlots,
+            overSectionSlots: overSectionSlots,
             completeByTimestamp: completeByTimestamp
         });
 
@@ -344,12 +413,12 @@ export class EvChargeulatorCard extends LitElement {
                                               outline: none;
                                               background: linear-gradient(
                                                   to right,
-                                                  #424242 0%,
-                                                  #424242 ${currentSOC}%,
-                                                  #1565c0 ${currentSOC}%,
-                                                  #1565c0 ${target_soc}%,
-                                                  #ff6f00 ${target_soc}%,
-                                                  #d32f2f 100%
+                                                  ${slider_color_low} 0%,
+                                                  ${slider_color_low} ${currentSOC}%,
+                                                  ${slider_color_target} ${currentSOC}%,
+                                                  ${slider_color_target} ${target_soc}%,
+                                                  ${slider_color_high} ${target_soc}%,
+                                                  ${slider_color_max} 100%
                                               );
                                           }
                                           #ev-target-slider::-webkit-slider-thumb {
@@ -433,7 +502,76 @@ export class EvChargeulatorCard extends LitElement {
                                           : '')
                               )
                             : html`<em>No charging needed</em>`}
-                        ${complete_by ? html`<div style="margin-top:10px;"><strong>Complete by:</strong> ${complete_by}</div>` : null}
+                        ${complete_by
+                            ? html`
+                                  <div style="margin-top:10px;">
+                                      ${this._showCompleteByControls
+                                          ? html`
+                                                <div style="display:flex;align-items:center;gap:8px;">
+                                                    <strong>Complete by:</strong>
+                                                    <button
+                                                        class="time-control-btn"
+                                                        @click=${() => this._adjustCompleteBy('earliest')}
+                                                        title="Jump to earliest needed time"
+                                                    >
+                                                        ⏪
+                                                    </button>
+                                                    <button
+                                                        class="time-control-btn"
+                                                        @click=${() => {
+                                                            const interval = this._getTimeInterval();
+                                                            this._adjustCompleteBy(-interval);
+                                                        }}
+                                                        title="Decrease by time slot"
+                                                    >
+                                                        ⏴
+                                                    </button>
+                                                    <span style="font-weight:600;color:#03a9f4;min-width:50px;text-align:center;">${complete_by}</span>
+                                                    <button
+                                                        class="time-control-btn"
+                                                        @click=${() => {
+                                                            const interval = this._getTimeInterval();
+                                                            this._adjustCompleteBy(interval);
+                                                        }}
+                                                        title="Increase by time slot"
+                                                    >
+                                                        ⏵
+                                                    </button>
+                                                    <button
+                                                        class="time-control-btn"
+                                                        @click=${() => this._adjustCompleteBy('latest')}
+                                                        title="Jump to end of price data"
+                                                    >
+                                                        ⏩
+                                                    </button>
+                                                    <button
+                                                        class="time-control-btn"
+                                                        @click=${() => {
+                                                            this._showCompleteByControls = false;
+                                                            this.requestUpdate();
+                                                        }}
+                                                        title="Close"
+                                                        style="margin-left:4px;"
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                </div>
+                                            `
+                                          : html`
+                                                <div
+                                                    style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;user-select:none;"
+                                                    @click=${() => {
+                                                        this._showCompleteByControls = true;
+                                                        this.requestUpdate();
+                                                    }}
+                                                    title="Click to adjust"
+                                                >
+                                                    <strong>Complete by:</strong> ${complete_by} <span style="opacity:0.6;">✏️</span>
+                                                </div>
+                                            `}
+                                  </div>
+                              `
+                            : null}
                     </div>
                 </div>
             </ha-card>

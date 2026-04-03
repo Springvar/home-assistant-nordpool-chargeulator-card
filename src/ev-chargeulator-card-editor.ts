@@ -103,13 +103,45 @@ export class EvChargeulatorCardEditor extends LitElement {
                 <label class="editor-label">Max charge slots:</label>
                 <input type="number" class="editor-field" min="1" max="12" step="1" .value=${this._config.max_charge_slots ?? 3} @input=${this._maxChargeSlotsChanged} />
                 <div class="editor-note">
-                    <em> Sets the maximum number of chunks to split the charge plan into. Different cars/chargers may only support a limited number of scheduling periods. </em>
+                    <em> Maximum number of charging periods in the final plan. Adjacent periods will be merged if needed. </em>
+                </div>
+            </div>
+            <div class="editor-form-row">
+                <label class="editor-label">Max initial splits:</label>
+                <input
+                    type="number"
+                    class="editor-field"
+                    min="1"
+                    max="50"
+                    step="1"
+                    .value=${this._config.over_section_slots ?? ((this._config.max_charge_slots ?? 3) * 7)}
+                    @input=${this._overSectionSlotsChanged}
+                />
+                <div class="editor-note">
+                    <em> Maximum splits to try when searching for optimal plan (defaults to 7× max charge slots). Higher values explore more possibilities but take longer to calculate. </em>
                 </div>
             </div>
             <div class="editor-form-row">
                 <label class="editor-label">Complete Charging By:</label>
                 <input type="time" class="editor-field" .value=${this._config.complete_by ?? ''} @input=${this._completeByChanged} />
                 <div class="editor-note">(The calculation assumes this is tomorrow. Charging slots starting after this time will be removed.)</div>
+            </div>
+            <div class="editor-form-row">
+                <label class="editor-label">Slider colors:</label>
+                <div class="editor-note"><strong>Low range (0% to current SOC):</strong></div>
+                <input type="color" class="editor-field" .value=${this._config.slider_color_low ?? '#424242'} @input=${this._sliderColorLowChanged} />
+            </div>
+            <div class="editor-form-row">
+                <div class="editor-note"><strong>Target range (current SOC to target):</strong></div>
+                <input type="color" class="editor-field" .value=${this._config.slider_color_target ?? '#1565c0'} @input=${this._sliderColorTargetChanged} />
+            </div>
+            <div class="editor-form-row">
+                <div class="editor-note"><strong>High range (target to 100%):</strong></div>
+                <input type="color" class="editor-field" .value=${this._config.slider_color_high ?? '#ff6f00'} @input=${this._sliderColorHighChanged} />
+            </div>
+            <div class="editor-form-row">
+                <div class="editor-note"><strong>Maximum (100%):</strong></div>
+                <input type="color" class="editor-field" .value=${this._config.slider_color_max ?? '#d32f2f'} @input=${this._sliderColorMaxChanged} />
             </div>
             <div class="editor-form-row">
                 <label class="editor-label">Charge plan template parts:</label>
@@ -241,9 +273,34 @@ ${this._config.plan_summary_template ??
         this._config = { ...this._config, max_charge_slots: val > 0 ? val : 3 };
         this._emitConfigChanged();
     }
+    _overSectionSlotsChanged(e: Event) {
+        const val = Number((e.target as HTMLInputElement).value);
+        this._config = { ...this._config, over_section_slots: val > 0 ? val : undefined };
+        this._emitConfigChanged();
+    }
     _completeByChanged(e: Event) {
         const val = (e.target as HTMLInputElement).value;
         this._config = { ...this._config, complete_by: val };
+        this._emitConfigChanged();
+    }
+    _sliderColorLowChanged(e: Event) {
+        const val = (e.target as HTMLInputElement).value;
+        this._config = { ...this._config, slider_color_low: val };
+        this._emitConfigChanged();
+    }
+    _sliderColorTargetChanged(e: Event) {
+        const val = (e.target as HTMLInputElement).value;
+        this._config = { ...this._config, slider_color_target: val };
+        this._emitConfigChanged();
+    }
+    _sliderColorHighChanged(e: Event) {
+        const val = (e.target as HTMLInputElement).value;
+        this._config = { ...this._config, slider_color_high: val };
+        this._emitConfigChanged();
+    }
+    _sliderColorMaxChanged(e: Event) {
+        const val = (e.target as HTMLInputElement).value;
+        this._config = { ...this._config, slider_color_max: val };
         this._emitConfigChanged();
     }
     _showSummaryChanged(e: Event) {

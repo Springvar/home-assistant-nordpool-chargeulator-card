@@ -36,69 +36,70 @@
     <body>
         <ev-chargeulator-card id="evcard"></ev-chargeulator-card>
         <script>
-            // Dummy price data - 24 hours with MULTIPLE low-price windows
-            // This creates an interesting charging plan with 2-3 separate charging periods
-            // Window 1: 01:00-03:00 (very cheap night hours)
-            // Window 2: 11:00-13:00 (cheap midday dip)
-            // Window 3: 22:00-23:00 (cheap late evening)
-            const dummyPriceData = {
-                current_price: 0.95,
-                raw_today: [
-                    { start: '2026-04-02T00:00:00+02:00', end: '2026-04-02T01:00:00+02:00', value: 0.55 },
-                    { start: '2026-04-02T01:00:00+02:00', end: '2026-04-02T02:00:00+02:00', value: 0.28 },  // 💰 Cheap window 1
-                    { start: '2026-04-02T02:00:00+02:00', end: '2026-04-02T03:00:00+02:00', value: 0.25 },  // 💰 Cheapest!
-                    { start: '2026-04-02T03:00:00+02:00', end: '2026-04-02T04:00:00+02:00', value: 0.30 },  // 💰 Cheap window 1
-                    { start: '2026-04-02T04:00:00+02:00', end: '2026-04-02T05:00:00+02:00', value: 0.58 },
-                    { start: '2026-04-02T05:00:00+02:00', end: '2026-04-02T06:00:00+02:00', value: 0.72 },
-                    { start: '2026-04-02T06:00:00+02:00', end: '2026-04-02T07:00:00+02:00', value: 0.88 },
-                    { start: '2026-04-02T07:00:00+02:00', end: '2026-04-02T08:00:00+02:00', value: 1.05 },  // Morning peak
-                    { start: '2026-04-02T08:00:00+02:00', end: '2026-04-02T09:00:00+02:00', value: 1.20 },  // Morning peak
-                    { start: '2026-04-02T09:00:00+02:00', end: '2026-04-02T10:00:00+02:00', value: 1.15 },
-                    { start: '2026-04-02T10:00:00+02:00', end: '2026-04-02T11:00:00+02:00', value: 0.85 },
-                    { start: '2026-04-02T11:00:00+02:00', end: '2026-04-02T12:00:00+02:00', value: 0.32 },  // 💰 Cheap window 2
-                    { start: '2026-04-02T12:00:00+02:00', end: '2026-04-02T13:00:00+02:00', value: 0.35 },  // 💰 Cheap window 2
-                    { start: '2026-04-02T13:00:00+02:00', end: '2026-04-02T14:00:00+02:00', value: 0.78 },
-                    { start: '2026-04-02T14:00:00+02:00', end: '2026-04-02T15:00:00+02:00', value: 0.82 },
-                    { start: '2026-04-02T15:00:00+02:00', end: '2026-04-02T16:00:00+02:00', value: 0.92 },
-                    { start: '2026-04-02T16:00:00+02:00', end: '2026-04-02T17:00:00+02:00', value: 1.10 },
-                    { start: '2026-04-02T17:00:00+02:00', end: '2026-04-02T18:00:00+02:00', value: 1.30 },  // Evening peak
-                    { start: '2026-04-02T18:00:00+02:00', end: '2026-04-02T19:00:00+02:00', value: 1.45 },  // Highest!
-                    { start: '2026-04-02T19:00:00+02:00', end: '2026-04-02T20:00:00+02:00', value: 1.35 },  // Evening peak
-                    { start: '2026-04-02T20:00:00+02:00', end: '2026-04-02T21:00:00+02:00', value: 1.15 },
-                    { start: '2026-04-02T21:00:00+02:00', end: '2026-04-02T22:00:00+02:00', value: 0.75 },
-                    { start: '2026-04-02T22:00:00+02:00', end: '2026-04-02T23:00:00+02:00', value: 0.38 },  // 💰 Cheap window 3
-                    { start: '2026-04-02T23:00:00+02:00', end: '2026-04-03T00:00:00+02:00', value: 0.45 }
-                ],
-                raw_tomorrow: [
-                    { start: '2026-04-03T00:00:00+02:00', end: '2026-04-03T01:00:00+02:00', value: 0.42 },
-                    { start: '2026-04-03T01:00:00+02:00', end: '2026-04-03T02:00:00+02:00', value: 0.26 },  // 💰 Cheap night
-                    { start: '2026-04-03T02:00:00+02:00', end: '2026-04-03T03:00:00+02:00', value: 0.23 },  // 💰 Very cheap!
-                    { start: '2026-04-03T03:00:00+02:00', end: '2026-04-03T04:00:00+02:00', value: 0.27 },  // 💰 Cheap night
-                    { start: '2026-04-03T04:00:00+02:00', end: '2026-04-03T05:00:00+02:00', value: 0.52 },
-                    { start: '2026-04-03T05:00:00+02:00', end: '2026-04-03T06:00:00+02:00', value: 0.68 },
-                    { start: '2026-04-03T06:00:00+02:00', end: '2026-04-03T07:00:00+02:00', value: 0.85 },
-                    { start: '2026-04-03T07:00:00+02:00', end: '2026-04-03T08:00:00+02:00', value: 1.08 },  // Morning peak
-                    { start: '2026-04-03T08:00:00+02:00', end: '2026-04-03T09:00:00+02:00', value: 1.25 },  // Morning peak
-                    { start: '2026-04-03T09:00:00+02:00', end: '2026-04-03T10:00:00+02:00', value: 1.18 },
-                    { start: '2026-04-03T10:00:00+02:00', end: '2026-04-03T11:00:00+02:00', value: 0.88 },
-                    { start: '2026-04-03T11:00:00+02:00', end: '2026-04-03T12:00:00+02:00', value: 0.65 },
-                    { start: '2026-04-03T12:00:00+02:00', end: '2026-04-03T13:00:00+02:00', value: 0.70 },
-                    { start: '2026-04-03T13:00:00+02:00', end: '2026-04-03T14:00:00+02:00', value: 0.75 },
-                    { start: '2026-04-03T14:00:00+02:00', end: '2026-04-03T15:00:00+02:00', value: 0.80 },
-                    { start: '2026-04-03T15:00:00+02:00', end: '2026-04-03T16:00:00+02:00', value: 0.95 },
-                    { start: '2026-04-03T16:00:00+02:00', end: '2026-04-03T17:00:00+02:00', value: 1.15 },
-                    { start: '2026-04-03T17:00:00+02:00', end: '2026-04-03T18:00:00+02:00', value: 1.35 },  // Evening peak
-                    { start: '2026-04-03T18:00:00+02:00', end: '2026-04-03T19:00:00+02:00', value: 1.50 },  // Highest tomorrow!
-                    { start: '2026-04-03T19:00:00+02:00', end: '2026-04-03T20:00:00+02:00', value: 1.38 },  // Evening peak
-                    { start: '2026-04-03T20:00:00+02:00', end: '2026-04-03T21:00:00+02:00', value: 1.12 },
-                    { start: '2026-04-03T21:00:00+02:00', end: '2026-04-03T22:00:00+02:00', value: 0.72 },
-                    { start: '2026-04-03T22:00:00+02:00', end: '2026-04-03T23:00:00+02:00', value: 0.48 },
-                    { start: '2026-04-03T23:00:00+02:00', end: '2026-04-04T00:00:00+02:00', value: 0.40 }
-                ],
-                unit_of_measurement: 'NOK/kWh',
-                device_class: 'monetary',
-                friendly_name: 'Nordpool Electricity Price'
-            };
+            // Real historical Nordpool price data (NOK/kWh) - averages of 15-min intervals converted to hourly
+            // This data shows realistic Nordic pricing patterns:
+            // - Low prices: 00:00-05:00 (0.41-0.54 NOK/kWh) - night valley
+            // - Morning peak: 06:00-09:00 (0.80-0.84 NOK/kWh)
+            // - Midday: 10:00-16:00 (0.80-0.87 NOK/kWh) - relatively high
+            // - Evening peak: 17:00-21:00 (0.87-0.89 NOK/kWh) - highest
+            // - Late night drop: 22:00-23:00 (0.70-0.86 NOK/kWh)
+            const realPricesToday = [
+                0.6135, 0.5145, 0.4535, 0.4185, 0.4055, 0.5155, 0.7565, 0.8245, 0.8440, 0.8295,
+                0.8170, 0.8005, 0.8085, 0.8505, 0.8680, 0.8713, 0.8858, 0.8903, 0.8865, 0.8800,
+                0.8760, 0.8710, 0.8665, 0.7125
+            ];
+            const realPricesTomorrow = [
+                0.6970, 0.6620, 0.6583, 0.6680, 0.6945, 0.7273, 0.8165, 0.6750, 0.6980, 0.7850,
+                0.8188, 0.8290, 0.8343, 0.8145, 0.7510, 0.7563, 0.8160, 0.8683, 0.9168, 1.0180,
+                1.0053, 0.9843, 0.9610, 0.7763
+            ];
+
+            function generatePriceData() {
+                const now = new Date();
+                const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+                const tzOffset = -startOfToday.getTimezoneOffset() / 60;
+                const tzString = `+${String(tzOffset).padStart(2, '0')}:00`;
+
+                function createSlots(prices, dayOffset) {
+                    return prices.map((price, hour) => {
+                        const start = new Date(startOfToday);
+                        start.setDate(start.getDate() + dayOffset);
+                        start.setHours(hour, 0, 0, 0);
+                        const end = new Date(start);
+                        end.setHours(hour + 1, 0, 0, 0);
+
+                        const formatDateTime = (dt) => {
+                            const yyyy = dt.getFullYear();
+                            const MM = String(dt.getMonth() + 1).padStart(2, '0');
+                            const dd = String(dt.getDate()).padStart(2, '0');
+                            const HH = String(dt.getHours()).padStart(2, '0');
+                            const mm = String(dt.getMinutes()).padStart(2, '0');
+                            const ss = String(dt.getSeconds()).padStart(2, '0');
+                            return `${yyyy}-${MM}-${dd}T${HH}:${mm}:${ss}${tzString}`;
+                        };
+
+                        return {
+                            start: formatDateTime(start),
+                            end: formatDateTime(end),
+                            value: price
+                        };
+                    });
+                }
+
+                const raw_today = createSlots(realPricesToday, 0);
+                const raw_tomorrow = createSlots(realPricesTomorrow, 1);
+
+                return {
+                    current_price: realPricesToday[now.getHours()] || realPricesToday[0],
+                    raw_today,
+                    raw_tomorrow,
+                    unit_of_measurement: 'NOK/kWh',
+                    device_class: 'monetary',
+                    friendly_name: 'Nordpool Electricity Price'
+                };
+            }
+
+            const dummyPriceData = generatePriceData();
 
             const dummyHass = {
                 states: {
