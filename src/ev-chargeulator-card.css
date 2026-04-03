@@ -148,3 +148,26 @@ div#header {
 .time-control-btn:active {
     background: var(--primary-color-darker, #01579b);
 }
+
+.program-btn {
+    background: var(--primary-color, #03a9f4);
+    border: none;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: background 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.program-btn:hover {
+    background: var(--primary-color-dark, #0288d1);
+}
+
+.program-btn:active {
+    background: var(--primary-color-darker, #01579b);
+}
