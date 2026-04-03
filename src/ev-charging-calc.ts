@@ -6,6 +6,7 @@ export type ChargeSlot = {
     end: number;
     avgPrice: number;
     energy: number;
+    energyIn: number;
     cost: number;
     priceSlots: PriceSlot[];
     charge: number;
@@ -50,6 +51,7 @@ export function getOptimalChargePlan({
 
     if (priceSlots.length < slotsToCharge) {
         const totalEnergyAvailable = priceSlots.length * energy_out_per_slot;
+        const totalEnergyIn = priceSlots.length * energy_in_per_slot;
         let totalCost = 0;
         priceSlots.forEach((slot) => {
             totalCost += slot.price * energy_in_per_slot;
@@ -62,6 +64,7 @@ export function getOptimalChargePlan({
                     start: priceSlots[0].start,
                     end: priceSlots[priceSlots.length - 1].end,
                     energy: totalEnergyAvailable,
+                    energyIn: totalEnergyIn,
                     cost: totalCost,
                     priceSlots: priceSlots,
                     avgPrice: priceSlots.reduce((sum, s) => sum + s.price, 0) / priceSlots.length,
@@ -119,6 +122,7 @@ export function getOptimalChargePlan({
     for (let i = 0; i < bestSlots.length; i++) {
         let window = bestSlots[i];
         let windowEnergy = window.length * energy_out_per_slot;
+        let windowEnergyIn = window.length * energy_in_per_slot;
         let windowCost = 0;
         for (let j = 0; j < window.length; j++) {
             windowCost += window[j].price * energy_in_per_slot;
@@ -132,6 +136,7 @@ export function getOptimalChargePlan({
             start: window[0].start,
             end: window[window.length - 1].end,
             energy: windowEnergy,
+            energyIn: windowEnergyIn,
             cost: windowCost,
             priceSlots: window,
             avgPrice: window.reduce((sum, slot) => sum + slot.price, 0) / window.length,
@@ -164,7 +169,9 @@ export function getOptimalChargePlan({
             const chargeSlot = chargeSlots[maxSlotIdx];
             const edgeSlot = isStartSlot ? chargeSlot.priceSlots[0] : chargeSlot.priceSlots[chargeSlot.priceSlots.length - 1];
 
+            const energyInSurplus = energySurplus * (energy_in_per_slot / energy_out_per_slot);
             chargeSlot.energy -= energySurplus;
+            chargeSlot.energyIn -= energyInSurplus;
             chargeSlot.cost -= edgeSlot.price * energy_in_per_slot * (energySurplus / energy_out_per_slot);
             chargeSlot.chargeDelta = (chargeSlot.energy / batterySizeKWh) * 100;
 

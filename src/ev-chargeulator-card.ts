@@ -57,13 +57,13 @@ export class EvChargeulatorCard extends LitElement {
         slider_color_high: '#ff6f00',
         slider_color_max: '#d32f2f',
         before_plan_template: '<ul>',
-        plan_item_template: '<li>%from%-%to% %energy% kWh %cost% (%costPrKwH%/kWh, %costPerPct%/% charge)</li>',
+        plan_item_template: '<li>%from%-%to% %energy% kWh %cost% (%gridPricePerKwh%/kWh, %costPerPct%/% charge)</li>',
         after_plan_template: '</ul>',
         plan_summary_template: `
 <div>
     <strong>Total energy estimate:</strong> %totalEnergy% kWh<br>
     <strong>Total cost estimate:</strong> %totalCost%<br>
-    <strong>Average cost per kWh:</strong> %avgCostPrKwH%<br>
+    <strong>Average grid price per kWh:</strong> %avgGridPricePerKwh%<br>
     <strong>Average cost per % charged:</strong> %avgCostPerPct%
 </div>`,
         complete_by: undefined
@@ -131,12 +131,14 @@ export class EvChargeulatorCard extends LitElement {
         {
             batterySizeKwh,
             totalEnergyKwh,
+            totalEnergyIn,
             totalCost,
             chargeSlotIndex,
             slots
         }: {
             batterySizeKwh: number;
             totalEnergyKwh: number;
+            totalEnergyIn: number;
             totalCost: number;
             chargeSlotIndex?: number;
             slots?: ChargeSlot[];
@@ -165,7 +167,10 @@ export class EvChargeulatorCard extends LitElement {
             values['cost'] = slot.cost?.toFixed(2) ?? '';
             values['charge'] = slot.charge?.toFixed(0) ?? '';
             values['chargeDelta'] = deltaChargePct.toFixed(1);
-            values['costPrKwH'] = slot.energy ? ((slot.cost ?? 0) / slot.energy).toFixed(2) : '';
+            // Effective cost per kWh (cost per usable kWh delivered to battery)
+            values['costPerUsableKwh'] = slot.energy ? ((slot.cost ?? 0) / slot.energy).toFixed(2) : '';
+            // Grid price per kWh (cost per kWh consumed from grid)
+            values['gridPricePerKwh'] = slot.energyIn ? ((slot.cost ?? 0) / slot.energyIn).toFixed(2) : '';
             values['costPerPct'] = costPerPct.toFixed(2);
             values['costPer10Pct'] = (10 * costPerPct).toFixed(2);
             if (chargeSlotIndex !== undefined) values['idx'] = (chargeSlotIndex + 1).toString();
@@ -173,14 +178,17 @@ export class EvChargeulatorCard extends LitElement {
         values['totalEnergy'] = totalEnergyKwh.toFixed(2);
         values['totalCost'] = totalCost.toFixed(2);
         const totalCharge = totalEnergyKwh / batterySizeKwh;
-        values['avgCostPrKwH'] = totalEnergyKwh ? (totalCost / totalEnergyKwh).toFixed(2) : '0';
+        // Effective average cost per kWh (cost per usable kWh)
+        values['avgCostPerUsableKwh'] = totalEnergyKwh ? (totalCost / totalEnergyKwh).toFixed(2) : '0';
+        // Average grid price per kWh (cost per kWh from grid)
+        values['avgGridPricePerKwh'] = totalEnergyIn ? (totalCost / totalEnergyIn).toFixed(2) : '0';
         values['avgCostPerPct'] = totalCharge ? (totalCost / totalCharge).toFixed(2) : '0';
         return values;
     }
 
-    private renderPlanItems(itemTemplate: string, slots: ChargeSlot[], batterySizeKwh: number, totalEnergyKwh: number, totalCost: number): string {
+    private renderPlanItems(itemTemplate: string, slots: ChargeSlot[], batterySizeKwh: number, totalEnergyKwh: number, totalEnergyIn: number, totalCost: number): string {
         return slots
-            .map((slot, idx) => this.renderTemplate(itemTemplate, this.calculateTemplateValues(slot, { batterySizeKwh, totalEnergyKwh, totalCost, chargeSlotIndex: idx, slots })))
+            .map((slot, idx) => this.renderTemplate(itemTemplate, this.calculateTemplateValues(slot, { batterySizeKwh, totalEnergyKwh, totalEnergyIn, totalCost, chargeSlotIndex: idx, slots })))
             .join('');
     }
 
@@ -378,10 +386,12 @@ export class EvChargeulatorCard extends LitElement {
         });
 
         let totalEnergy = 0;
+        let totalEnergyIn = 0;
         let totalCost = 0;
         if (Array.isArray(plan.chargeSlots) && plan.chargeSlots.length > 0) {
             this._firstChargeSlotStart = plan.chargeSlots[0].start;
             totalEnergy = plan.chargeSlots.reduce((sum, cs) => sum + (cs.energy || 0), 0);
+            totalEnergyIn = plan.chargeSlots.reduce((sum, cs) => sum + (cs.energyIn || 0), 0);
             totalCost = plan.chargeSlots.reduce((sum, cs) => sum + (cs.cost || 0), 0);
         } else {
             this._firstChargeSlotStart = undefined;
@@ -487,6 +497,7 @@ export class EvChargeulatorCard extends LitElement {
                                           plan.chargeSlots,
                                           Number(battery_size_kwh),
                                           totalEnergy,
+                                          totalEnergyIn,
                                           totalCost
                                       ) +
                                       (after_plan_template ?? '</ul>') +
@@ -496,6 +507,7 @@ export class EvChargeulatorCard extends LitElement {
                                                 this.calculateTemplateValues(null, {
                                                     batterySizeKwh: Number(battery_size_kwh),
                                                     totalEnergyKwh: totalEnergy,
+                                                    totalEnergyIn: totalEnergyIn,
                                                     totalCost: totalCost
                                                 })
                                             )
