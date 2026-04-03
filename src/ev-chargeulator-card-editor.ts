@@ -153,7 +153,7 @@ ${this._config.before_plan_template ?? '<ul>'}</textarea
             <div class="editor-form-row">
                 <div class="editor-note"><strong>Plan item:</strong></div>
                 <textarea class="editor-field" style="width:100%;min-height:30px;" @input=${this._planItemTemplateChanged}>
-${this._config.plan_item_template ?? '<li>%from%-%to% %energy%kWh %cost% (%costPrKwH%/kWh, %costPerPct%/% charge)</li>'}</textarea
+${this._config.plan_item_template ?? '<li>%from%-%to% %energy%kWh %cost% (%gridPricePerKwh%/kWh, %costPerPct%/% charge)</li>'}</textarea
                 >
             </div>
             <div class="editor-form-row">
@@ -166,7 +166,7 @@ ${this._config.after_plan_template ?? '</ul>'}</textarea
                 <label class="editor-label">Plan summary template:</label>
                 <textarea class="editor-field" style="width:100%;min-height:50px;" @input=${this._planSummaryTemplateChanged}>
 ${this._config.plan_summary_template ??
-                    '<div><strong>Total energy estimate:</strong> %totalEnergy% kWh<br><strong>Total cost estimate:</strong> %totalCost%<br><strong>Average cost per kWh:</strong> %avgCostPrKwH%<br><strong>Average cost per %% charged:</strong> %avgCostPerPct%</div>'}</textarea
+                    '<div><strong>Total energy estimate:</strong> %totalEnergy% kWh<br><strong>Total cost estimate:</strong> %totalCost%<br><strong>Average grid price per kWh:</strong> %avgGridPricePerKwh%<br><strong>Average cost per %% charged:</strong> %avgCostPerPct%</div>'}</textarea
                 >
                 <div class="editor-note">
                     <strong>Available plan item variables:</strong><br />
@@ -177,12 +177,14 @@ ${this._config.plan_summary_template ??
                     <code>%energy%</code> — Est. energy usage<br />
                     <code>%cost%</code> — Est. cost<br />
                     <code>%charge%</code> — Est. charge level (at end of slot)<br />
-                    <code>%costPrKwH%</code> — Cost per kWh<br />
+                    <code>%gridPricePerKwh%</code> — Grid price per kWh (from grid)<br />
+                    <code>%costPerUsableKwh%</code> — Cost per usable kWh (to battery)<br />
                     <code>%costPerPct%</code> — Cost per percent charged<br />
                     <strong>Available plan summary variables:</strong><br />
                     <code>%totalEnergy%</code> — Total energy estimate<br />
                     <code>%totalCost%</code> — Total cost estimate<br />
-                    <code>%avgCostPrKwH%</code> — Average cost per kWh<br />
+                    <code>%avgGridPricePerKwh%</code> — Average grid price per kWh<br />
+                    <code>%avgCostPerUsableKwh%</code> — Average cost per usable kWh<br />
                     <code>%avgCostPerPct%</code> — Average cost per percent charged
                 </div>
             </div>
