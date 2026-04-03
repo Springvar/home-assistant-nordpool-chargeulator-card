@@ -127,6 +127,14 @@ export class EvChargeulatorCardEditor extends LitElement {
                 <div class="editor-note">(The calculation assumes this is tomorrow. Charging slots starting after this time will be removed.)</div>
             </div>
             <div class="editor-form-row">
+                <label class="editor-label">Program Service (optional):</label>
+                <input type="text" class="editor-field" .value=${this._config.program_service ?? ''} @input=${this._programServiceChanged} placeholder="script.program_ev_charging" />
+                <div class="editor-note">
+                    Service/script/automation to call with charging plan data. When set, a "Program" button appears next to the plan.
+                    The service receives the charging plan as data (charge_slots, total_energy, total_cost, etc.).
+                </div>
+            </div>
+            <div class="editor-form-row">
                 <label class="editor-label">Slider colors:</label>
                 <div class="editor-note"><strong>Low range (0% to current SOC):</strong></div>
                 <input type="color" class="editor-field" .value=${this._config.slider_color_low ?? '#424242'} @input=${this._sliderColorLowChanged} />
@@ -283,6 +291,11 @@ ${this._config.plan_summary_template ??
     _completeByChanged(e: Event) {
         const val = (e.target as HTMLInputElement).value;
         this._config = { ...this._config, complete_by: val };
+        this._emitConfigChanged();
+    }
+    _programServiceChanged(e: Event) {
+        const val = (e.target as HTMLInputElement).value.trim();
+        this._config = { ...this._config, program_service: val || undefined };
         this._emitConfigChanged();
     }
     _sliderColorLowChanged(e: Event) {

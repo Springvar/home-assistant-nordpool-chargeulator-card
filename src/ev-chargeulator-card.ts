@@ -32,6 +32,7 @@ export interface EvChargeulatorCardConfig {
     slider_color_target?: string;
     slider_color_high?: string;
     slider_color_max?: string;
+    program_service?: string;
 }
 
 export class EvChargeulatorCard extends LitElement {
@@ -66,7 +67,8 @@ export class EvChargeulatorCard extends LitElement {
     <strong>Average grid price per kWh:</strong> %avgGridPricePerKwh%<br>
     <strong>Average cost per % charged:</strong> %avgCostPerPct%
 </div>`,
-        complete_by: undefined
+        complete_by: undefined,
+        program_service: undefined
     };
 
     @property({ attribute: false }) hass: any;
@@ -253,6 +255,44 @@ export class EvChargeulatorCard extends LitElement {
         // Update config and trigger re-render
         this.config = { ...this.config, complete_by: newCompleteBy };
         this.requestUpdate();
+    }
+
+    private _programCharging(chargeSlots: ChargeSlot[], totalEnergy: number, totalCost: number, config: EvChargeulatorCardConfig) {
+        if (!config.program_service || !this.hass) return;
+
+        // Parse service domain and service name
+        const [domain, service] = config.program_service.split('.');
+        if (!domain || !service) {
+            console.error('Invalid service format. Expected format: domain.service (e.g., script.program_ev_charging)');
+            return;
+        }
+
+        // Prepare charging plan data
+        const chargePlanData = {
+            charge_slots: chargeSlots.map(slot => ({
+                start: new Date(slot.start).toISOString(),
+                end: new Date(slot.end).toISOString(),
+                start_time: new Date(slot.start).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+                end_time: new Date(slot.end).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+                energy: slot.energy,
+                energy_in: slot.energyIn,
+                cost: slot.cost,
+                charge_level: slot.charge,
+                average_price: slot.avgPrice
+            })),
+            total_energy: totalEnergy,
+            total_cost: totalCost,
+            current_soc: Number(this.hass.states[config.soc_entity]?.state || 0),
+            target_soc: this._sliderTargetSoc !== undefined ? this._sliderTargetSoc : config.target_soc,
+            battery_size_kwh: config.battery_size_kwh,
+            complete_by: config.complete_by
+        };
+
+        // Call the Home Assistant service
+        this.hass.callService(domain, service, chargePlanData).catch((error: Error) => {
+            console.error('Failed to call program service:', error);
+            alert(`Failed to program charging: ${error.message}`);
+        });
     }
 
     render() {
@@ -514,6 +554,19 @@ export class EvChargeulatorCard extends LitElement {
                                           : '')
                               )
                             : html`<em>No charging needed</em>`}
+                        ${config.program_service && Array.isArray(plan.chargeSlots) && plan.chargeSlots.length > 0
+                            ? html`
+                                  <div style="margin-top:12px;">
+                                      <button
+                                          class="program-btn"
+                                          @click=${() => this._programCharging(plan.chargeSlots, totalEnergy, totalCost, config)}
+                                          title="Send charging plan to configured service"
+                                      >
+                                          📋 Program Charging
+                                      </button>
+                                  </div>
+                              `
+                            : null}
                         ${complete_by
                             ? html`
                                   <div style="margin-top:10px;">
