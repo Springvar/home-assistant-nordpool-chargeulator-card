@@ -335,33 +335,76 @@ export class EvChargeulatorCard extends LitElement {
                             ? html`
                                   <div style="margin-bottom:22px;">
                                       <label for="ev-target-slider"><strong>Target charge:</strong></label>
+                                      <style>
+                                          #ev-target-slider {
+                                              -webkit-appearance: none;
+                                              appearance: none;
+                                              height: 8px;
+                                              border-radius: 4px;
+                                              outline: none;
+                                              background: linear-gradient(
+                                                  to right,
+                                                  #424242 0%,
+                                                  #424242 ${currentSOC}%,
+                                                  #1565c0 ${currentSOC}%,
+                                                  #1565c0 ${target_soc}%,
+                                                  #ff6f00 ${target_soc}%,
+                                                  #d32f2f 100%
+                                              );
+                                          }
+                                          #ev-target-slider::-webkit-slider-thumb {
+                                              -webkit-appearance: none;
+                                              appearance: none;
+                                              width: 20px;
+                                              height: 20px;
+                                              border-radius: 50%;
+                                              background: #03a9f4;
+                                              cursor: pointer;
+                                              border: 2px solid white;
+                                              box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                                          }
+                                          #ev-target-slider::-moz-range-thumb {
+                                              width: 20px;
+                                              height: 20px;
+                                              border-radius: 50%;
+                                              background: #03a9f4;
+                                              cursor: pointer;
+                                              border: 2px solid white;
+                                              box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                                          }
+                                          #ev-target-slider::-webkit-slider-thumb:hover {
+                                              background: #0288d1;
+                                          }
+                                          #ev-target-slider::-moz-range-thumb:hover {
+                                              background: #0288d1;
+                                          }
+                                      </style>
                                       <input
                                           id="ev-target-slider"
                                           type="range"
-                                          min="${Math.max(currentSOC, 0)}"
+                                          min="0"
                                           max="100"
                                           .value=${String(this._sliderTargetSoc ?? target_soc)}
                                           step="1"
                                           @input=${(e: Event) => {
-                                              this._sliderTargetSoc = Number((e.target as HTMLInputElement).value);
-                                              this.requestUpdate();
+                                              const newValue = Number((e.target as HTMLInputElement).value);
+                                              // Prevent setting target below current SOC
+                                              if (newValue >= currentSOC) {
+                                                  this._sliderTargetSoc = newValue;
+                                                  this.requestUpdate();
+                                              } else {
+                                                  // Snap back to current SOC if user tries to go lower
+                                                  (e.target as HTMLInputElement).value = String(currentSOC);
+                                                  this._sliderTargetSoc = currentSOC;
+                                                  this.requestUpdate();
+                                              }
                                           }}
                                           style="width: 90%; margin: 12px 0;"
                                       />
-                                      <div style="display:flex;justify-content:space-between;font-size:13px;color:#666;">
-                                          <span>${Math.max(currentSOC, 0)}%</span>
-                                          <span>${useTargetSoc}%</span>
+                                      <div style="display:flex;justify-content:space-between;font-size:13px;color:#666;margin-top:4px;">
+                                          <span>0%</span>
+                                          <span style="color:#03a9f4;font-weight:600;">Target: ${useTargetSoc}%</span>
                                           <span>100%</span>
-                                      </div>
-                                      <div style="position:relative; height:6px; margin-top: 2px;">
-                                          <div
-                                              style="position:absolute;left:${((target_soc - Math.max(currentSOC, 0)) / Math.max(1, 100 - Math.max(currentSOC, 0))) *
-                                              100}%;width:2px;height:14px;background:#2196f3;margin-top:-4px;"
-                                          ></div>
-                                          <div
-                                              style="position:absolute;left:${((useTargetSoc - Math.max(currentSOC, 0)) / Math.max(1, 100 - Math.max(currentSOC, 0))) *
-                                              100}%;width:2px;height:18px;background:red;margin-top:-6px;"
-                                          ></div>
                                       </div>
                                   </div>
                               `

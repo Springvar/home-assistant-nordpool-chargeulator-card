@@ -15,5 +15,9 @@ export default defineConfig({
             }
         },
         minify: 'esbuild'
+    },
+    server: {
+        port: 5174,
+        open: '/test/card.html'
     }
 });
