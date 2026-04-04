@@ -2,8 +2,7 @@
 
 Custom Lovelace card for Home Assistant to visualize and optimize electric vehicle (EV) charging based on dynamic Nordpool electricity prices.
 
-<!-- Add a preview image if desired -->
-<!-- <img src="https://raw.githubusercontent.com/Springvar/home-assistant-nordpool-chargeulator-card/main/card.png" width="35%"> -->
+<img src="https://raw.githubusercontent.com/Springvar/home-assistant-nordpool-chargeulator-card/main/resources/screenshot_card.png" width="50%">
 
 ## Table of Contents
 
