@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>EV Chargeulator Card + Editor Demo</title>
+        <script type="module" src="../dist/home-assistant-nordpool-chargeulator-card.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+        <style>
+            :root {
+                --primary-color: #03a9f4;
+                --accent-color: #ff9800;
+                --primary-background-color: #fafafa;
+                --secondary-background-color: #e0e0e0;
+                --ha-card-background: #fff;
+                --ha-card-box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.12);
+                --primary-text-color: #212121;
+                --secondary-text-color: #757575;
+                --info-color: #2196f3;
+                --success-color: #43a047;
+                --warning-color: #fb8c00;
+                --error-color: #c0392b;
+            }
+            body {
+                background: #fafafa;
+                font-family: sans-serif;
+                margin: 0;
+                padding: 2em;
+            }
+            .container {
+                max-width: 800px;
+                margin: 0 auto;
+            }
+            h2 {
+                color: var(--primary-text-color);
+                margin-top: 2em;
+                margin-bottom: 1em;
+            }
+            h2:first-child {
+                margin-top: 0;
+            }
+            ev-chargeulator-card-editor {
+                display: block;
+                margin-bottom: 2em;
+            }
+            ev-chargeulator-card {
+                display: block;
+                max-width: 500px;
+                margin: 0 auto;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h2>Editor</h2>
+            <ev-chargeulator-card-editor id="eveditor"></ev-chargeulator-card-editor>
+
+            <h2>Card Preview</h2>
+            <ev-chargeulator-card id="evcard"></ev-chargeulator-card>
+        </div>
+
+        <script>
+            // Real historical Nordpool price data (NOK/kWh) - averages of 15-min intervals converted to hourly
+            const realPricesToday = [
+                0.6135, 0.5145, 0.4535, 0.4185, 0.4055, 0.5155, 0.7565, 0.8245, 0.8440, 0.8295,
+                0.8170, 0.8005, 0.8085, 0.8505, 0.8680, 0.8713, 0.8858, 0.8903, 0.8865, 0.8800,
+                0.8760, 0.8710, 0.8665, 0.7125
+            ];
+            const realPricesTomorrow = [
+                0.6970, 0.6620, 0.6583, 0.6680, 0.6945, 0.7273, 0.8165, 0.6750, 0.6980, 0.7850,
+                0.8188, 0.8290, 0.8343, 0.8145, 0.7510, 0.7563, 0.8160, 0.8683, 0.9168, 1.0180,
+                1.0053, 0.9843, 0.9610, 0.7763
+            ];
+
+            function generatePriceData() {
+                const now = new Date();
+                const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+                const tzOffset = -startOfToday.getTimezoneOffset() / 60;
+                const tzString = `+${String(tzOffset).padStart(2, '0')}:00`;
+
+                function createSlots(prices, dayOffset) {
+                    return prices.map((price, hour) => {
+                        const start = new Date(startOfToday);
+                        start.setDate(start.getDate() + dayOffset);
+                        start.setHours(hour, 0, 0, 0);
+                        const end = new Date(start);
+                        end.setHours(hour + 1, 0, 0, 0);
+
+                        const formatDateTime = (dt) => {
+                            const yyyy = dt.getFullYear();
+                            const MM = String(dt.getMonth() + 1).padStart(2, '0');
+                            const dd = String(dt.getDate()).padStart(2, '0');
+                            const HH = String(dt.getHours()).padStart(2, '0');
+                            const mm = String(dt.getMinutes()).padStart(2, '0');
+                            const ss = String(dt.getSeconds()).padStart(2, '0');
+                            return `${yyyy}-${MM}-${dd}T${HH}:${mm}:${ss}${tzString}`;
+                        };
+
+                        return {
+                            start: formatDateTime(start),
+                            end: formatDateTime(end),
+                            value: price
+                        };
+                    });
+                }
+
+                const raw_today = createSlots(realPricesToday, 0);
+                const raw_tomorrow = createSlots(realPricesTomorrow, 1);
+
+                return {
+                    current_price: realPricesToday[now.getHours()] || realPricesToday[0],
+                    raw_today,
+                    raw_tomorrow,
+                    unit_of_measurement: 'NOK/kWh',
+                    device_class: 'monetary',
+                    friendly_name: 'Nordpool Electricity Price'
+                };
+            }
+
+            const dummyPriceData = generatePriceData();
+
+            const dummyHass = {
+                states: {
+                    'sensor.nordpool_kwh_no3_nok_3_10_025': {
+                        state: String(dummyPriceData.current_price),
+                        attributes: dummyPriceData
+                    },
+                    'sensor.ev_soc': {
+                        state: '35',
+                        attributes: {
+                            friendly_name: 'Tesla Model 3 Battery',
+                            unit_of_measurement: '%',
+                            device_class: 'battery'
+                        }
+                    }
+                }
+            };
+
+            function getConfigFile() {
+                const params = new URLSearchParams(window.location.search);
+                const cfgName = params.get('config');
+                return cfgName ? `${cfgName}.yaml` : 'config.yaml';
+            }
+
+            async function initComponents() {
+                try {
+                    console.log('Starting initialization...');
+
+                    const resp = await fetch(getConfigFile());
+                    if (!resp.ok) throw new Error("Config file not found");
+                    const yamlSource = await resp.text();
+                    const cardConfig = window.jsyaml.load(yamlSource);
+                    console.log('Config loaded:', cardConfig);
+
+                    console.log('Waiting for custom elements...');
+                    await window.customElements.whenDefined('ev-chargeulator-card');
+                    console.log('ev-chargeulator-card defined');
+                    await window.customElements.whenDefined('ev-chargeulator-card-editor');
+                    console.log('ev-chargeulator-card-editor defined');
+
+                    const card = document.getElementById('evcard');
+                    const editor = document.getElementById('eveditor');
+                    console.log('Elements found:', { card, editor });
+
+                    // Initialize card
+                    card.setConfig(cardConfig);
+                    card.hass = dummyHass;
+                    card.requestUpdate();
+                    console.log('Card initialized');
+
+                    // Initialize editor
+                    editor.hass = dummyHass;
+                    console.log('Editor hass set');
+                    if (editor.setConfig) {
+                        editor.setConfig(cardConfig);
+                        console.log('Editor config set');
+                    } else {
+                        console.warn('Editor does not have setConfig method');
+                    }
+
+                    // Listen for config changes from editor
+                    editor.addEventListener('config-changed', (event) => {
+                        console.log('Config changed:', event.detail.config);
+                        card.setConfig(event.detail.config);
+                        card.requestUpdate();
+                    });
+
+                    console.log('Card and editor initialized with config:', cardConfig);
+                    console.log('Current SOC:', dummyHass.states['sensor.ev_soc'].state + '%');
+                    console.log('Price data loaded:', dummyPriceData.raw_today.length, 'hours today,', dummyPriceData.raw_tomorrow.length, 'hours tomorrow');
+                } catch (e) {
+                    console.error("Error initializing components:", e);
+                    document.getElementById('evcard').innerHTML =
+                        `<div style="padding: 20px; color: red;">Error: ${e.message}<br/><pre>${e.stack}</pre></div>`;
+                    document.getElementById('eveditor').innerHTML =
+                        `<div style="padding: 20px; color: red;">Error: ${e.message}</div>`;
+                }
+            }
+
+            initComponents();
+        </script>
+    </body>
+</html>

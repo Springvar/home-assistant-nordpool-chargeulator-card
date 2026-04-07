@@ -1,14 +1,15 @@
 import { LitElement, html, css, unsafeCSS } from 'lit';
 import { property, state } from 'lit/decorators.js';
-import { EvChargeulatorCardConfig, EvChargeulatorCard } from './ev-chargeulator-card';
+import { EvChargeulatorCardConfig } from './ev-chargeulator-card';
 import styleString from './ev-chargeulator-card.css?raw';
+import { DEFAULT_CONFIG } from './config-defaults';
 
 export class EvChargeulatorCardEditor extends LitElement {
     @property({ attribute: false }) public hass: any;
-    @state() private _config: EvChargeulatorCardConfig = { ...EvChargeulatorCard.DEFAULT_CONFIG };
+    @state() private _config: EvChargeulatorCardConfig = { ...DEFAULT_CONFIG };
 
     setConfig(config: EvChargeulatorCardConfig) {
-        this._config = { ...EvChargeulatorCard.DEFAULT_CONFIG, ...config };
+        this._config = { ...DEFAULT_CONFIG, ...config };
         this.requestUpdate();
     }
 

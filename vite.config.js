@@ -18,6 +18,6 @@ export default defineConfig({
     },
     server: {
         port: 5174,
-        open: '/test/card.html'
+        open: '/test/combined.html'
     }
 });
